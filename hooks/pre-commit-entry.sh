@@ -7,7 +7,7 @@ if ! command -v apiiro &>/dev/null; then
   echo "Install via Homebrew:" >&2
   echo "  brew tap apiiro/tap && brew install apiiro" >&2
   echo "" >&2
-  echo "Or download from: https://github.com/apiiro/cli-releases/releases" >&2
+  echo "Or download from: https://github.com/apiiro/marketplace/releases" >&2
   exit 1
 fi
 

@@ -12,7 +12,7 @@ brew tap apiiro/tap && brew install apiiro
 
 ### Direct Download
 
-Pre-compiled binaries for all platforms are available on the [releases page](https://github.com/apiiro/cli-releases/releases):
+Pre-compiled binaries for all platforms are available on the [releases page](https://github.com/apiiro/marketplace/releases):
 
 | Platform | Binary |
 |----------|--------|
@@ -31,7 +31,7 @@ sudo mv apiiro-* /usr/local/bin/apiiro
 ### RPM (Linux)
 
 ```bash
-sudo yum install -y https://github.com/apiiro/cli-releases/releases/latest/download/apiiro-<version>.x86_64.rpm
+sudo yum install -y https://github.com/apiiro/marketplace/releases/latest/download/apiiro-<version>.x86_64.rpm
 ```
 
 ### pre-commit
@@ -40,8 +40,8 @@ Add to `.pre-commit-config.yaml`:
 
 ```yaml
 repos:
-  - repo: https://github.com/apiiro/cli-releases
-    rev: <VERSION>  # get latest from https://github.com/apiiro/cli-releases/releases
+  - repo: https://github.com/apiiro/marketplace
+    rev: <VERSION>  # get latest from https://github.com/apiiro/marketplace/releases
     hooks:
       - id: apiiro-fast-scan     # secrets + OSS
       # - id: apiiro-secrets-scan  # secrets only
@@ -53,7 +53,7 @@ repos:
 Install skills for AI coding assistants (Claude Code, Cursor, etc.) using [Vercel Skills](https://github.com/vercel-labs/skills):
 
 ```bash
-npx skills add apiiro/cli-releases
+npx skills add apiiro/marketplace
 ```
 
 Available skills: `apiiro-risks`, `apiiro-fix`, `apiiro-guardian`, `apiiro-threat-model`, `apiiro-scan`, `apiiro-secure-prompt`.
@@ -172,4 +172,4 @@ Full documentation is available at [docs.apiiro.com](https://docs.apiiro.com).
 
 ## License
 
-Use of the Apiiro CLI is subject to the [Developer Tools EULA](https://github.com/apiiro/cli-releases/blob/main/Apiiro%20Developer%20Tools%20EULA.pdf).
+Use of the Apiiro CLI is subject to the [Developer Tools EULA](https://github.com/apiiro/marketplace/blob/main/Apiiro%20Developer%20Tools%20EULA.pdf).
