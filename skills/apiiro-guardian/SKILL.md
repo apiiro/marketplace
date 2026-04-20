@@ -41,7 +41,3 @@ apiiro guardian repository clear --global  # Clear all cached repos
 ```
 
 Detection results are cached for 24 hours.
-
-## Global Options
-
-`-o, --output <json|text>`, `-f, --file <path>`, `--no-color`.
