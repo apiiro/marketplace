@@ -5,15 +5,7 @@
                 "hooks": [
                     {
                         "type": "command",
-                        "command": "apiiro hooks claude prompt-secret-scan"
-                    }
-                ]
-            },
-            {
-                "hooks": [
-                    {
-                        "type": "command",
-                        "command": "apiiro hooks claude enrich-prompt"
+                        "command": "apiiro hooks claude secure-prompt"
                     }
                 ]
             }
@@ -25,16 +17,6 @@
                     {
                         "type": "command",
                         "command": "apiiro hooks claude pre-commit-scan"
-                    }
-                ]
-            }
-        ],
-        "SessionStart": [
-            {
-                "hooks": [
-                    {
-                        "type": "command",
-                        "command": "apiiro hooks claude enrich-session"
                     }
                 ]
             }

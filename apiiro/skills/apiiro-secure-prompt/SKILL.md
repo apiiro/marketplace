@@ -16,12 +16,13 @@ Auto-detects the current git repository for context.
 
 ```bash
 apiiro guardian secure-prompt "implement user authentication with JWT"
-apiiro guardian secure-prompt "add file upload endpoint" --file-path src/api/upload.ts
+apiiro guardian secure-prompt "add file upload endpoint"
 apiiro guardian secure-prompt "build payment processing module" -o json
 apiiro guardian secure-prompt "create REST API" --global       # Without repo context
 apiiro guardian secure-prompt "implement OAuth flow" -f enhanced.txt
+apiiro guardian secure-prompt "build payment module" --force   # Bypass classifier gate
 ```
 
-Options: `-g, --global`, `--file-path <path>` (scope to a file), `-o, --output <json|text>` (default: text), `-f, --file <path>`.
+Options: `-g, --global`, `--force` (bypass classifier gate), `-o, --output <json|text>` (default: text), `-f, --file <path>`.
 
-Text output returns the enhanced prompt directly. JSON output includes `success`, `enhanced_prompt`, and `error` fields.
+Text output returns the original prompt followed by the security requirements (or the prompt unchanged when there's nothing to add). JSON output includes `success`, `enrichment`, `gate_decision`, and `error` fields.
