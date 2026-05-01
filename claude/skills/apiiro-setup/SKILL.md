@@ -1,4 +1,5 @@
 ---
+name: apiiro-setup
 description: Install Apiiro CLI, authenticate, verify version, check available features, and configure hooks
 user_invocable: true
 ---
