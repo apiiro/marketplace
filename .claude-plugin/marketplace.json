@@ -12,7 +12,7 @@
       "description": "Apiiro security plugin: skills, prompt enrichment, and pre-commit scanning",
       "source": "./claude",
       "category": "security",
-      "strict": false,
+      "strict": true,
       "skills": [
         "./skills/apiiro-diff-scan",
         "./skills/apiiro-fast-scan",
