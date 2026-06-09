@@ -92,13 +92,26 @@ If the user wants to proceed, delegate to the `statusline-setup` agent with thes
 
 ### Case A: No existing status line
 
-Add to `~/.claude/settings.json`:
+Add to `~/.claude/settings.json`. Use the script that matches the user's OS:
+
+**macOS / Linux:**
 
 ```json
 {
   "statusLine": {
     "type": "command",
     "command": "${CLAUDE_PLUGIN_ROOT}/scripts/statusline.sh"
+  }
+}
+```
+
+**Windows:**
+
+```json
+{
+  "statusLine": {
+    "type": "command",
+    "command": "powershell -ExecutionPolicy Bypass -File \"${CLAUDE_PLUGIN_ROOT}/scripts/statusline.ps1\""
   }
 }
 ```

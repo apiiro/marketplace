@@ -28,6 +28,8 @@ chmod +x apiiro-*
 sudo mv apiiro-* /usr/local/bin/apiiro
 ```
 
+On Windows, move `apiiro-win.exe` to a directory on your `PATH` (optionally rename to `apiiro.exe`).
+
 ### RPM (Linux)
 
 ```bash
@@ -47,6 +49,8 @@ repos:
       # - id: apiiro-secrets-scan  # secrets only
       # - id: apiiro-oss-scan      # OSS only
 ```
+
+> Windows: pre-commit hooks are POSIX shell scripts; run them via Git Bash (bundled with [Git for Windows](https://git-scm.com/download/win)) or WSL.
 
 ### Claude Code Plugin
 
@@ -131,6 +135,23 @@ apiiro risks get <risk-id>                       # Get risk details
 apiiro risks remediate <risk-id>                 # Get remediation instructions
 ```
 
+### Inventory
+
+List inventory items (APIs, dependencies, sensitive data, secrets) for a repository or application. Requires a scope (auto-detected from git, or one of the explicit flags).
+
+```bash
+apiiro inventory                                 # Auto-detect repo from git
+apiiro inventory --repo my-repo-name             # Specify repo explicitly
+apiiro inventory --repository-id <repo-id>       # Specify repo by ID
+apiiro inventory --application-id <app-id>       # Scope to an application
+apiiro inventory --entity-type API               # APIs only
+apiiro inventory --entity-type Dependency        # Dependencies only
+apiiro inventory --entity-type Secret            # Secrets only
+apiiro inventory --entity-type SensitiveData     # Sensitive data only
+apiiro inventory --repo my-repo -o json          # JSON output
+apiiro inventory --repo my-repo --max-pages -1   # Fetch every page (default cap: 5)
+```
+
 ### Threat Model
 
 Perform STRIDE-based threat analysis on feature specs, requirements, or architectural changes. Agent skill: `apiiro-threat-model`.
@@ -175,7 +196,24 @@ apiiro hooks pre-commit uninstall   # Remove hook
 Most commands support:
 - `-o, --output <format>` — `text` (default) or `json`
 - `-f, --file <path>` — Save output to file
+- `--api-url <url>` — Override API endpoint
 - `--no-color` — Disable colored output
+- `--no-merge-system-ca` — Skip the TLS **retry** path (no second HTTPS attempt with merged OS CA material: native system store, macOS keychains, Linux PEM bundles, Windows root store export, plus bundled roots). Every request uses Bun’s default trust only. Use if you hit issues such as **certificate has expired** from merged roots. Place the flag **before or after** the subcommand (e.g. `apiiro --no-merge-system-ca login` or `apiiro login --no-merge-system-ca`).
+
+## Environment Variables
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `NODE_EXTRA_CA_CERTS` | Optional PEM path: contents are **appended** to the retry CA bundle after the first HTTPS attempt fails with a TLS trust error (alongside OS + bundled roots), unless `--no-merge-system-ca` is set. | — |
+| `APIIRO_CA_EXPORT_TIMEOUT_MS` | Timeout (ms) for OS CA subprocess I/O (macOS `security`, Windows PowerShell). Default 3 minutes, max 20. `CA_EXPORT_TIMEOUT_MS` is used only if unset. | `180000` |
+| `APIIRO_CA_EXPORT_MAX_BUFFER_BYTES` | Max subprocess stdout bytes when building the merged PEM. Default 100MB. `CA_EXPORT_MAX_BUFFER_BYTES` is used only if unset. | `104857600` |
+| `APIIRO_FORCE_SECURITY_EXPORT` | macOS: `1`/`true`/`yes`/`on` forces `security` export from both System keychains, skipping native `tls.getCACertificates('system')` for the OS portion. | — |
+
+## Troubleshooting
+
+- **TLS / HTTPS errors** (`unable to verify the first certificate`, corporate TLS inspection) — Point `NODE_EXTRA_CA_CERTS` at a PEM file from your IT team, then retry. The CLI prefers Bun’s default trust first and only merges OS and extra roots after a qualifying TLS failure (unless `--no-merge-system-ca`).
+- **"Certificate has expired"** after an upgrade or on strict networks — Try `apiiro login --no-merge-system-ca` so only the runtime default trust store is used on the first attempt.
+- **macOS: keychain export slow, incomplete native CAs, or failing** — Increase `APIIRO_CA_EXPORT_TIMEOUT_MS` / `APIIRO_CA_EXPORT_MAX_BUFFER_BYTES`, or set `APIIRO_FORCE_SECURITY_EXPORT=1` (see table).
 
 ## Documentation
 

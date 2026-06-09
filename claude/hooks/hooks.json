@@ -1,5 +1,17 @@
 {
     "hooks": {
+        "SessionStart": [
+            {
+                "hooks": [
+                    {
+                        "type": "command",
+                        "command": "apiiro hooks claude session-start",
+                        "async": true,
+                        "timeout": 300
+                    }
+                ]
+            }
+        ],
         "UserPromptSubmit": [
             {
                 "hooks": [
