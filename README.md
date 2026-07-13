@@ -4,6 +4,21 @@ Command-line interface for the [Apiiro](https://apiiro.com) platform — securit
 
 ## Installation
 
+### npm (macOS / Linux / Windows)
+
+Requires Node.js 18+. No Bun needed — the right prebuilt binary is installed automatically for your platform.
+
+```bash
+npm i -g apiiro-cli    # installs the `apiiro` command
+apiiro --help
+```
+
+Or run without installing:
+
+```bash
+npx apiiro-cli --help
+```
+
 ### Homebrew (macOS / Linux)
 
 ```bash
@@ -128,12 +143,19 @@ List and inspect risks for a repository. Agent skills: `apiiro-risks` (list/insp
 
 ```bash
 apiiro risks                                     # List all risks (auto-detects repo)
-apiiro risks --repo my-repo-name                 # Specify repo explicitly
+apiiro risks --repo my-repo-name                 # Specify repo (defaults to its default branch)
+apiiro risks --repo my-repo-name --branch dev    # Target a specific monitored branch
+apiiro risks --repository-id <repo-id>           # Specify repo (branch) by ID
 apiiro risks --risk-level Critical               # Filter by risk level
 apiiro risks --risk-category "API Security"      # Filter by category
 apiiro risks get <risk-id>                       # Get risk details
 apiiro risks remediate <risk-id>                 # Get remediation instructions
 ```
+
+> When a repository has multiple monitored branches, each branch is a separate
+> profile with its own ID. `--repo` resolves to the **default branch** by
+> default; use `--branch <name>` (or `--repository-id <id>`) to pin a specific
+> branch so results are reproducible.
 
 ### Inventory
 
@@ -141,8 +163,9 @@ List inventory items (APIs, dependencies, sensitive data, secrets) for a reposit
 
 ```bash
 apiiro inventory                                 # Auto-detect repo from git
-apiiro inventory --repo my-repo-name             # Specify repo explicitly
-apiiro inventory --repository-id <repo-id>       # Specify repo by ID
+apiiro inventory --repo my-repo-name             # Specify repo (defaults to its default branch)
+apiiro inventory --repo my-repo-name --branch dev # Target a specific monitored branch
+apiiro inventory --repository-id <repo-id>       # Specify repo (branch) by ID
 apiiro inventory --application-id <app-id>       # Scope to an application
 apiiro inventory --entity-type API               # APIs only
 apiiro inventory --entity-type Dependency        # Dependencies only
@@ -172,7 +195,10 @@ apiiro guardian query "what risks exist in this repo"
 apiiro guardian query "deep analysis of auth flow" --model normal
 apiiro guardian query "what is STRIDE?" --global
 apiiro guardian query "detailed analysis" --timeout 120
+apiiro guardian query "what risks exist here" --remote gh   # detect via a non-origin remote
 ```
+
+The repo is detected from the `origin` remote, or the first remote if there's no `origin`. Use `--remote <name>` to choose a specific remote, or `--repository-key <key>` to set it explicitly.
 
 ### Guardian Repository
 

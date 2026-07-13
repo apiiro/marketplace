@@ -10,7 +10,7 @@ Ask security questions and get AI-powered analysis about your repository.
 
 ## Query
 
-Auto-detects the current git repository for context (like `risks` does). No need to specify a repo explicitly — Guardian picks it up from the git remote.
+Auto-detects the current git repository for context (like `risks` does). No need to specify a repo explicitly — Guardian picks it up from the git remote (`origin`, or the first remote if there's no `origin`). If the repo has several remotes pointing at different providers, target one with `--remote <name>`. If it still shows `[✗ Not Monitored by Apiiro]`, pass the repository key directly with `--repository-key <key>`.
 
 **Important:** Before running a query, consider whether the question is repo-specific or org-wide:
 - **Repo-specific** (default): questions about the current repo's code, risks, auth flows, dependencies, etc.
@@ -24,13 +24,14 @@ apiiro guardian query "deep analysis of auth flow" --model normal
 apiiro guardian query "what is STRIDE?" --global          # General security question
 apiiro guardian query "top risks across the org last week" --global
 apiiro guardian query "what are our org security policies?" --global
-apiiro guardian query "detailed analysis" --timeout 120   # 120s timeout
+apiiro guardian query "detailed analysis" --timeout 120   # wait longer between responses
+apiiro guardian query "what risks exist here" --remote gh  # use the 'gh' remote, not origin
 apiiro guardian query "risk analysis" -f analysis.md
 ```
 
-Options: `--model <fast|normal>` (default: `fast`), `-g, --global`, `--timeout <seconds>` (default: 60), `-f, --file <path>`.
+Options: `--model <fast|normal>` (default: `fast`), `-g, --global`, `--remote <name>`, `--repository-key <key>`, `--timeout <seconds>` (default: 60, measured as max inactivity between responses), `-f, --file <path>`.
 
-In TTY mode, responses stream with markdown rendering.
+In TTY mode, a progress spinner shows the agent's status while it works, then the full answer is rendered once as markdown.
 
 ## Repository Management
 

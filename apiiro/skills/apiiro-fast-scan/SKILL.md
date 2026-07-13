@@ -19,9 +19,9 @@ apiiro fast-scan all                              # Both concurrently
 apiiro fast-scan config                           # Get scan configuration
 ```
 
-Options: `--staged`, `--full` (scan entire file, not just git-changed lines), `--timeout <ms>` (default: 2000), `-o, --output <json|text>`, `-f, --file <path>`.
+Options: `--staged`, `--full` (scan entire file, not just git-changed lines), `--timeout <ms>` (default: 2000), `--fail-on <severity>` (`any` (default), `none`, or `informational|low|medium|high|critical`), `-o, --output <json|text>`, `-f, --file <path>`.
 
-Exit codes: 0 = clean, 1 = high/critical risks found.
+Exit codes: 0 = clean, 1 = findings at or above the `--fail-on` threshold (default: any finding).
 
 ## Pre-commit Hook
 
