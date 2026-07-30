@@ -22,8 +22,26 @@ npx apiiro-cli --help
 ### Homebrew (macOS / Linux)
 
 ```bash
-brew tap apiiro/tap && brew install apiiro
+brew tap apiiro/tap
+brew trust apiiro/tap    # required on Homebrew 6.0+
+brew install apiiro
 ```
+
+> **Homebrew 6.0 and later will not load formulae from third-party taps until you trust them.**
+> Without the `brew trust` step, `brew install apiiro` stops with:
+>
+> ```
+> Error: Refusing to load formula apiiro/tap/apiiro from untrusted tap apiiro/tap.
+> ```
+>
+> Trust the **tap**, not the individual formula. `brew trust --formula apiiro/tap/apiiro` does let
+> `apiiro` install, but the tap also ships an `apiiro-latest` formula, so Homebrew then prints a
+> `Refusing to load formula apiiro/tap/apiiro-latest` error on later commands. Trusting the tap avoids
+> that.
+>
+> Trusted entries are recorded in `~/.homebrew/trust.json` (or `$XDG_CONFIG_HOME/homebrew/trust.json`),
+> so this is a one-time step per machine. If your Homebrew predates `brew trust`, the command will not be
+> recognised — upgrade Homebrew or use one of the other installation methods below.
 
 ### Direct Download
 
