@@ -4,10 +4,24 @@ Command-line interface for the [Apiiro](https://apiiro.com) platform — securit
 
 ## Installation
 
+### One-line install (macOS / Linux / Windows)
+
+Downloads the right binary for your platform, verifies its checksum, installs it without sudo, and wires Apiiro into any coding agents you already have.
+
+```bash
+# macOS / Linux
+curl -fsSL https://apiiro.com/install.sh | bash
+```
+
+```powershell
+# Windows (PowerShell)
+irm https://apiiro.com/install.ps1 | iex
+```
+
 ### Homebrew (macOS / Linux)
 
 ```bash
-brew tap apiiro/tap && brew install apiiro
+brew tap apiiro/tap && brew trust apiiro/tap && brew install apiiro
 ```
 
 ### Direct Download
@@ -50,24 +64,38 @@ repos:
 
 ### Claude Code Plugin
 
-Bundles all skills plus security hooks. In Claude Code:
+Bundles all Apiiro skills. In Claude Code:
 
 ```
 /plugin marketplace add apiiro/marketplace
 /plugin install apiiro@apiiro
 ```
 
-Then ask Claude to "set up Apiiro" — the bundled `apiiro-setup` skill installs the CLI and walks you through authentication.
+Then ask Claude to "set up Apiiro" — the bundled `guardian-setup` skill installs the CLI and walks you through authentication.
+
+The `apiiro` plugin ships **skills only**. Prevention hooks (prompt security enrichment and pre-commit secret scanning) are a **separate, opt-in plugin** — install it when you want them:
+
+```
+/plugin install apiiro-prevention@apiiro
+```
+
+Manage or remove it anytime from `/plugin`. In Cursor, add the `apiiro-prevention` plugin the same way you added `apiiro`.
 
 ### Agent Skills (any assistant)
 
-Install skills for AI coding assistants (Claude Code, Cursor, etc.) using [Vercel Skills](https://github.com/vercel-labs/skills):
+If you have the CLI installed, it can write the skills into every coding agent it detects (Claude Code, Cursor, GitHub Copilot, Codex) — skills only, prevention hooks stay opt-in:
+
+```bash
+apiiro agents install     # or: status / uninstall
+```
+
+Or install the skills directly with [Vercel Skills](https://github.com/vercel-labs/skills), no CLI required:
 
 ```bash
 npx skills add apiiro/marketplace
 ```
 
-Available skills: `apiiro-risks`, `apiiro-fix`, `apiiro-guardian`, `apiiro-threat-model`, `apiiro-fast-scan`, `apiiro-diff-scan`, `apiiro-secure-prompt`.
+Available skills: `guardian-risks`, `guardian-fix`, `guardian-query`, `guardian-threat-model`, `guardian-scan`, `guardian-secure-prompt`.
 
 ## Authentication
 
@@ -88,7 +116,7 @@ Alternatively, set the `API_KEY` environment variable.
 
 ### Fast Scan
 
-Quick local scanning for secrets and OSS vulnerabilities. Auto-detects changed files in the current git repo. Agent skill: `apiiro-fast-scan`.
+Quick local scanning for secrets and OSS vulnerabilities. Auto-detects changed files in the current git repo. Agent skill: `guardian-scan`.
 
 ```bash
 apiiro fast-scan secrets            # Scan for secrets
@@ -101,7 +129,7 @@ apiiro fast-scan config             # Get scan configuration
 
 ### Diff Scan
 
-Compare two git references for security risks. Primary CI/CD integration point. Agent skill: `apiiro-diff-scan`.
+Compare two git references for security risks. Primary CI/CD integration point. Agent skill: `guardian-scan`.
 
 ```bash
 # Trigger and wait for results
@@ -120,7 +148,7 @@ apiiro diff-scan -i
 
 ### Risks
 
-List and inspect risks for a repository. Agent skills: `apiiro-risks` (list/inspect), `apiiro-fix` (remediate).
+List and inspect risks for a repository. Agent skills: `guardian-risks` (list/inspect), `guardian-fix` (remediate).
 
 ```bash
 apiiro risks                                     # List all risks (auto-detects repo)
@@ -133,7 +161,7 @@ apiiro risks remediate <risk-id>                 # Get remediation instructions
 
 ### Threat Model
 
-Perform STRIDE-based threat analysis on feature specs, requirements, or architectural changes. Agent skill: `apiiro-threat-model`.
+Perform STRIDE-based threat analysis on feature specs, requirements, or architectural changes. Agent skill: `guardian-threat-model`.
 
 ```bash
 apiiro threat-model "Add REST API for file uploads to S3"
@@ -144,7 +172,7 @@ apiiro threat-model "Migrate sessions to JWT" -f threat-report.md
 
 ### Guardian (AI Agent)
 
-Query Apiiro's AI agent for security analysis and insights. Agent skill: `apiiro-guardian`.
+Query Apiiro's AI agent for security analysis and insights. Agent skill: `guardian-query`.
 
 ```bash
 apiiro guardian query "what risks exist in this repo"

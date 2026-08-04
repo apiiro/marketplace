@@ -1,0 +1,8 @@
+{
+    "name": "apiiro-prevention",
+    "description": "Apiiro prevention hooks for Claude Code: prompt security enrichment, pre-commit secret scanning, and auto-login. Opt-in companion to the apiiro plugin.",
+    "version": "1.0.0",
+    "author": {
+        "name": "Apiiro"
+    }
+}

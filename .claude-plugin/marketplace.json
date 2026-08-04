@@ -1,7 +1,7 @@
 {
   "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
   "name": "apiiro",
-  "version": "1.4.4",
+  "version": "1.4.5",
   "description": "Apiiro security plugins for Claude Code",
   "owner": {
     "name": "Apiiro"
@@ -9,19 +9,24 @@
   "plugins": [
     {
       "name": "apiiro",
-      "description": "Apiiro security plugin: skills, prompt enrichment, and pre-commit scanning",
+      "description": "Apiiro security plugin: skills and commands (prevention hooks are opt-in)",
       "source": "./claude",
       "category": "security",
       "skills": [
-        "./skills/apiiro-diff-scan",
-        "./skills/apiiro-fast-scan",
-        "./skills/apiiro-fix",
-        "./skills/apiiro-guardian",
-        "./skills/apiiro-risks",
-        "./skills/apiiro-secure-prompt",
-        "./skills/apiiro-setup",
-        "./skills/apiiro-threat-model"
+        "./skills/guardian-fix",
+        "./skills/guardian-query",
+        "./skills/guardian-risks",
+        "./skills/guardian-scan",
+        "./skills/guardian-secure-prompt",
+        "./skills/guardian-setup",
+        "./skills/guardian-threat-model"
       ]
+    },
+    {
+      "name": "apiiro-prevention",
+      "description": "Apiiro prevention hooks (opt-in): prompt security enrichment, pre-commit secret scanning, and auto-login",
+      "source": "./claude-prevention",
+      "category": "security"
     }
   ]
 }

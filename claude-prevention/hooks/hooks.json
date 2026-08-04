@@ -1,0 +1,37 @@
+{
+    "hooks": {
+        "SessionStart": [
+            {
+                "hooks": [
+                    {
+                        "type": "command",
+                        "command": "apiiro hooks claude session-start",
+                        "async": true,
+                        "timeout": 300
+                    }
+                ]
+            }
+        ],
+        "UserPromptSubmit": [
+            {
+                "hooks": [
+                    {
+                        "type": "command",
+                        "command": "apiiro hooks claude secure-prompt"
+                    }
+                ]
+            }
+        ],
+        "PreToolUse": [
+            {
+                "matcher": "Bash",
+                "hooks": [
+                    {
+                        "type": "command",
+                        "command": "apiiro hooks claude pre-commit-scan"
+                    }
+                ]
+            }
+        ]
+    }
+}

@@ -1,16 +1,4 @@
 {
     "version": 1,
-    "hooks": {
-        "beforeSubmitPrompt": [
-            {
-                "command": "apiiro hooks cursor secure-prompt-check"
-            }
-        ],
-        "preToolUse": [
-            {
-                "matcher": "Shell",
-                "command": "apiiro hooks cursor pre-commit-scan"
-            }
-        ]
-    }
+    "hooks": {}
 }
