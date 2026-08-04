@@ -6,12 +6,12 @@
     "plugins": [
         {
             "name": "apiiro",
-            "source": "apiiro",
+            "source": "cursor",
             "description": "Apiiro security plugin: scan for risks, secrets, and vulnerabilities"
         },
         {
             "name": "apiiro-prevention",
-            "source": "apiiro-prevention",
+            "source": "cursor-prevention",
             "description": "Apiiro prevention hooks (opt-in): prompt security enrichment and pre-commit secret scanning"
         }
     ]
