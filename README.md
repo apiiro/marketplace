@@ -6,7 +6,7 @@ Command-line interface for the [Apiiro](https://apiiro.com) Guardian Agent — d
 
 ### One-line install (macOS / Linux / Windows)
 
-Downloads the right binary for your platform, verifies its checksum, installs it to a user directory (no sudo), and wires Apiiro into any coding agents you already have.
+The recommended install path. Downloads the right binary for your platform, verifies its checksum, installs it to a user directory (no sudo), and configures PATH.
 
 ```bash
 # macOS / Linux
@@ -18,7 +18,9 @@ curl -fsSL https://apiiro.com/install.sh | bash
 irm https://apiiro.com/install.ps1 | iex
 ```
 
-Environment overrides: `APIIRO_INSTALL_DIR`, `APIIRO_VERSION`, `APIIRO_NO_MODIFY_PATH`.
+Then run `apiiro login` and `apiiro init` to wire skills + prevention hooks into your coding agents.
+
+Environment overrides: `APIIRO_INSTALL_DIR`, `APIIRO_VERSION` (pin a version), `APIIRO_NO_MODIFY_PATH`.
 
 ### npm (macOS / Linux / Windows)
 
@@ -35,7 +37,12 @@ Or run without installing:
 npx apiiro-cli --help
 ```
 
-### Homebrew (macOS / Linux)
+### Other install methods
+
+<details>
+<summary>Homebrew, direct download, RPM</summary>
+
+**Homebrew (macOS / Linux)**
 
 ```bash
 brew tap apiiro/tap
@@ -47,7 +54,7 @@ brew install apiiro
 > required. Trust the **tap**, not the individual formula — trusting only `apiiro/tap/apiiro` leaves
 > Homebrew erroring on the tap's other formula (`apiiro-latest`) in later commands.
 
-### Direct Download
+**Direct Download**
 
 Pre-compiled binaries for all platforms are available on the [releases page](https://github.com/apiiro/marketplace/releases):
 
@@ -67,11 +74,24 @@ sudo mv apiiro-* /usr/local/bin/apiiro
 
 On Windows, move `apiiro-win.exe` to a directory on your `PATH` (optionally rename to `apiiro.exe`).
 
-### RPM (Linux)
+**RPM (Linux)**
 
 ```bash
 sudo yum install -y https://github.com/apiiro/marketplace/releases/latest/download/apiiro-<version>-1.x86_64.rpm
 ```
+
+</details>
+
+### Organization-wide deployment (macOS/MDM)
+
+Fleet rollouts use the same one-line installer — no package to build or upload. From an MDM policy script (or any login script), run as each user:
+
+```bash
+curl -fsSL https://apiiro.com/install.sh | bash
+apiiro init --non-interactive
+```
+
+Pin the fleet to a specific version with `APIIRO_VERSION=<version>`. `apiiro init --non-interactive` detects each user's installed AI coding agents and wires in Agent Skills and prevention hooks with no prompts. Managed-device admins: see your Apiiro contact for the ready-made Jamf policy and extension attribute scripts (self-bootstrapping, with version pinning and drift repair).
 
 ### pre-commit
 
@@ -89,32 +109,33 @@ repos:
 
 > Windows: pre-commit hooks are POSIX shell scripts; run them via Git Bash (bundled with [Git for Windows](https://git-scm.com/download/win)) or WSL.
 
-### Claude Code Plugin
+### AI coding agent setup
 
-Bundles all Apiiro skills. In Claude Code:
-
-```
-/plugin marketplace add apiiro/marketplace
-/plugin install apiiro@apiiro
-```
-
-Then ask Claude to "set up Apiiro" — the bundled `guardian-setup` skill installs the CLI and walks you through authentication.
-
-The `apiiro` plugin ships skills only. Prevention hooks (prompt security enrichment and pre-commit secret scanning) are a separate, opt-in plugin — `/plugin install apiiro-prevention@apiiro` (same in Cursor).
-
-### Agent Skills (any assistant)
-
-If you have the CLI installed, it can write the skills into every coding agent it detects (Claude Code, Cursor, GitHub Copilot, Codex) — skills only, prevention hooks stay opt-in:
+The recommended setup detects Claude Code and Cursor, installs their skills and prevention hooks, then verifies the result:
 
 ```bash
-apiiro agents install     # or: status / uninstall
+apiiro init
+apiiro doctor
 ```
 
-Or install the skills directly with [Vercel Skills](https://github.com/vercel-labs/skills), no CLI required:
+Common options:
+
+```bash
+apiiro init --claude          # Claude only; use --cursor or --all as needed
+apiiro init --skills-only     # Skip prevention hooks
+apiiro init --dry-run         # Preview file changes
+apiiro init --non-interactive # Unattended / MDM setup
+apiiro uninstall              # Remove skills and hooks
+apiiro uninstall --remove-binary
+```
+
+Restart Claude Code after setup. For skills without prevention hooks, use `apiiro agents install`. Without the CLI, install them with [Vercel Skills](https://github.com/vercel-labs/skills):
 
 ```bash
 npx skills add apiiro/marketplace
 ```
+
+Manual Claude setup remains available through `/plugin marketplace add apiiro/marketplace`, followed by `/plugin install apiiro@apiiro` and, optionally, `/plugin install apiiro-prevention@apiiro`.
 
 Available skills: `guardian-risks`, `guardian-fix`, `guardian-query`, `guardian-threat-model`, `guardian-scan`, `guardian-secure-prompt`.
 
@@ -131,7 +152,7 @@ apiiro auth status
 apiiro logout
 ```
 
-Alternatively, set the `API_KEY` environment variable.
+Alternatively, set the `APIIRO_API_KEY` environment variable.
 
 ## Commands
 
@@ -247,13 +268,47 @@ apiiro guardian repository clear     # Clear cached repo info
 
 ### Hooks
 
-Git pre-commit hook for automatic security scanning.
+Git pre-commit hook for automatic security scanning, plus CLI-managed prevention hooks for Claude Code and Cursor.
 
 ```bash
 apiiro hooks pre-commit install     # Install pre-commit hook
 apiiro hooks pre-commit status      # Check hook status
 apiiro hooks pre-commit uninstall   # Remove hook
+
+apiiro hooks claude install            # Enable the apiiro-prevention plugin (CLI equivalent of /plugin install)
+apiiro hooks claude status             # Check status
+apiiro hooks claude uninstall          # Disable the plugin
+apiiro hooks claude install --system   # Target Claude Code managed settings (admin/MDM scope)
+
+apiiro hooks cursor install         # Install the Cursor prevention hook
+apiiro hooks cursor status          # Check hook status and integrity
+apiiro hooks cursor uninstall       # Remove the hook
+
+apiiro hooks update                 # Refresh locally-installed hook artifacts once out of date
+apiiro hooks update --dry-run       # Preview without making changes
 ```
+
+Restart Claude Code after installing or uninstalling its plugin for the change to take effect.
+
+### Doctor
+
+Unified health check for your Apiiro setup — CLI version, auth state, per-agent skills, Claude Code plugin status, Cursor hook integrity, pre-commit hook, and hook toggles. Works without authentication.
+
+```bash
+apiiro doctor           # Human-readable report
+apiiro doctor --json    # Machine-readable
+```
+
+### Update
+
+Check for a newer CLI release, replace the running binary in place, and refresh installed hook files to the new version. Works without authentication.
+
+```bash
+apiiro update           # Check, install if a newer version is available, then refresh hooks
+apiiro update --check   # Only check; don't install
+```
+
+The download is checksum-verified and test-run before it replaces anything. Only self-updates the compiled binary (not npm or dev-mode invocations) and skips Homebrew-managed installs — run `brew upgrade apiiro` or `npm i -g apiiro-cli@latest` for those.
 
 ## Global Options
 

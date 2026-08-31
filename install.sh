@@ -63,7 +63,7 @@ detect_asset() {
         *) error "unsupported Linux architecture: $arch" ;;
       esac ;;
     *)
-      error "unsupported OS: $os. On Windows use \`irm https://apiiro.com/install.ps1 | iex\`, or \`brew install apiiro\`." ;;
+      error "unsupported OS: $os. On Windows use \`irm https://apiiro.com/install.ps1 | iex\`." ;;
   esac
 }
 
@@ -123,14 +123,40 @@ verify_attestation() {
 }
 
 # ----------------------------------------------------------------------------
-# PATH configuration — append a marked block to the shell profile if needed
+# PATH configuration — patch every common shell's startup file, not just the
+# one $SHELL points at. A machine with zsh as the login shell but bash also
+# installed (or vice versa) should get `apiiro` on PATH no matter which one a
+# given terminal launches.
 # ----------------------------------------------------------------------------
-profile_for_shell() {
-  case "${SHELL:-}" in
-    */zsh)  echo "$HOME/.zshrc" ;;
-    */bash) echo "$HOME/.bashrc" ;;
-    *)      echo "$HOME/.profile" ;;
-  esac
+
+# patch_shell_rc <rc-file> <bin-dir> — appends a marked PATH export if the
+# dir isn't already referenced there. Prints the rc path and returns 0 when
+# it wrote something, returns 1 (silently) when it was already present.
+patch_shell_rc() {
+  rc="$1"; dir="$2"
+  # Key on the dir itself, not just our marker: someone who reran with a
+  # different APIIRO_INSTALL_DIR should still get the new dir onto PATH.
+  if [ -f "$rc" ] && grep -qF "PATH=\"$dir:" "$rc" 2>/dev/null; then
+    return 1
+  fi
+  mkdir -p "$(dirname "$rc")"
+  {
+    printf '\n# >>> Apiiro installer >>>\n'
+    # shellcheck disable=SC2016  # literal $PATH is intentional — it must expand at shell startup, not now
+    printf 'export PATH="%s:$PATH"\n' "$dir"
+    printf '# <<< Apiiro installer <<<\n'
+  } >> "$rc"
+}
+
+# patch_fish_rc <bin-dir> — fish uses fish_add_path, not an export line.
+patch_fish_rc() {
+  dir="$1"
+  rc="$HOME/.config/fish/config.fish"
+  if [ -f "$rc" ] && grep -qF "fish_add_path -gP $dir" "$rc" 2>/dev/null; then
+    return 1
+  fi
+  mkdir -p "$HOME/.config/fish"
+  printf '\n# >>> Apiiro installer >>>\nfish_add_path -gP %s\n# <<< Apiiro installer <<<\n' "$dir" >> "$rc"
 }
 
 ensure_on_path() {
@@ -144,37 +170,39 @@ ensure_on_path() {
     return 0
   fi
 
-  profile=$(profile_for_shell)
-  # Key on the dir itself, not just our marker: someone who reran with a
-  # different APIIRO_INSTALL_DIR should still get the new dir onto PATH.
-  if [ -f "$profile" ] && grep -qF "PATH=\"$1:" "$profile" 2>/dev/null; then
-    return 0
+  patched=""
+  if command -v zsh >/dev/null 2>&1 && patch_shell_rc "$HOME/.zshrc" "$1"; then
+    patched="$patched $HOME/.zshrc"
   fi
-  {
-    printf '\n# >>> Apiiro installer >>>\n'
-    # shellcheck disable=SC2016  # literal $PATH is intentional — it must expand at shell startup, not now
-    printf 'export PATH="%s:$PATH"\n' "$1"
-    printf '# <<< Apiiro installer <<<\n'
-  } >> "$profile"
-  PATH_MODIFIED="$profile"
+  if command -v bash >/dev/null 2>&1 && patch_shell_rc "$HOME/.bashrc" "$1"; then
+    patched="$patched $HOME/.bashrc"
+  fi
+  if command -v fish >/dev/null 2>&1 && patch_fish_rc "$1"; then
+    patched="$patched $HOME/.config/fish/config.fish"
+  fi
+  # POSIX fallback so sh-only environments (containers, minimal Linux) still work.
+  if patch_shell_rc "$HOME/.profile" "$1"; then
+    patched="$patched $HOME/.profile"
+  fi
+
+  PATH_MODIFIED="${patched# }"
 }
 
 # ----------------------------------------------------------------------------
 # Best-effort: wire Apiiro into any coding agents you already have installed.
-# Skills only — prevention hooks stay opt-in (`apiiro hooks claude install`).
-# No-ops silently on CLI versions that predate the command.
+# Skills only — for skills + prevention hooks together, run `apiiro init` (or
+# `apiiro hooks claude install`). No-ops silently on CLI versions that predate
+# the command.
 # ----------------------------------------------------------------------------
 wire_agents() {
   if "$1" agents install >/dev/null 2>&1; then
     status "configured installed coding agents"
-    AGENTS_WIRED=1
   fi
 }
 
 # ----------------------------------------------------------------------------
 main() {
   PATH_MODIFIED=""
-  AGENTS_WIRED=0
 
   asset=$(detect_asset)
 
@@ -224,18 +252,17 @@ main() {
   printf '\n  Apiiro CLI %s installed.\n\n' "$version"
 
   if [ -n "$PATH_MODIFIED" ]; then
-    printf '  Added %s to your PATH in %s.\n' "$bin_dir" "$PATH_MODIFIED"
+    printf '  Added %s to your PATH:\n' "$bin_dir"
+    for profile in $PATH_MODIFIED; do
+      printf '    %s\n' "$profile"
+    done
     # shellcheck disable=SC2016  # showing the user a literal command to copy-paste
     printf '  Open a new terminal, or run:  export PATH="%s:$PATH"\n\n' "$bin_dir"
   fi
 
   printf '  Next steps:\n'
   printf '    1. apiiro login\n'
-  if [ "$AGENTS_WIRED" != "1" ]; then
-    printf '    2. Add the skills to your agent:\n'
-    printf '         Claude Code:  /plugin marketplace add apiiro/marketplace  then  /plugin install apiiro@apiiro\n'
-    printf '         Other agents: npx skills add apiiro/marketplace\n'
-  fi
+  printf '    2. apiiro init     (wires skills + prevention hooks into your coding agents)\n'
   printf '\n'
 }
 

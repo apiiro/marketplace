@@ -109,10 +109,9 @@ function Install-Apiiro {
     }
 
     # Best-effort: wire Apiiro into any installed coding agents (skills only).
-    $agentsWired = $false
     try {
         & $target agents install *> $null
-        if ($LASTEXITCODE -eq 0) { Write-Host "  configured installed coding agents"; $agentsWired = $true }
+        if ($LASTEXITCODE -eq 0) { Write-Host "  configured installed coding agents" }
     } catch { }
 
     $version = (& $target --version) 2>$null
@@ -125,11 +124,7 @@ function Install-Apiiro {
     }
     Write-Host "  Next steps:"
     Write-Host "    1. apiiro login"
-    if (-not $agentsWired) {
-        Write-Host "    2. Add the skills to your agent:"
-        Write-Host "         Claude Code:  /plugin marketplace add apiiro/marketplace  then  /plugin install apiiro@apiiro"
-        Write-Host "         Other agents: npx skills add apiiro/marketplace"
-    }
+    Write-Host "    2. apiiro init     (wires skills + prevention hooks into your coding agents)"
     Write-Host ""
 }
 
