@@ -1,0 +1,22 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "type": "command",
+        "bash": "bash \"${PLUGIN_ROOT}/hooks/run-apiiro.sh\" copilot session-start",
+        "powershell": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File \"${PLUGIN_ROOT}\\hooks\\run-apiiro.ps1\" copilot session-start",
+        "timeout": 360
+      }
+    ],
+    "PreToolUse": [
+      {
+        "type": "command",
+        "bash": "bash \"${PLUGIN_ROOT}/hooks/run-apiiro.sh\" copilot pre-commit-scan",
+        "powershell": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File \"${PLUGIN_ROOT}\\hooks\\run-apiiro.ps1\" copilot pre-commit-scan",
+        "timeout": 30,
+        "matcher": "Bash"
+      }
+    ]
+  },
+  "version": 1
+}

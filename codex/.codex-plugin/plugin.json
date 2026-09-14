@@ -1,0 +1,26 @@
+{
+  "name": "apiiro",
+  "version": "1.6.0",
+  "description": "Apiiro security skills for OpenAI Codex. Prevention hooks are a separate opt-in plugin.",
+  "author": {
+    "name": "Apiiro",
+    "url": "https://apiiro.com"
+  },
+  "homepage": "https://apiiro.com",
+  "repository": "https://github.com/apiiro/marketplace",
+  "license": "MIT",
+  "keywords": [
+    "security",
+    "appsec",
+    "devsecops"
+  ],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Apiiro",
+    "shortDescription": "Security skills for Apiiro Guardian",
+    "longDescription": "Inspect, explain, scan, and remediate application security risks with Apiiro Guardian.",
+    "developerName": "Apiiro",
+    "category": "Security",
+    "websiteURL": "https://apiiro.com"
+  }
+}

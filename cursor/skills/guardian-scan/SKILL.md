@@ -24,7 +24,7 @@ apiiro fast-scan config                           # Get scan configuration
 
 Options: `--staged`, `--full` (scan entire file, not just git-changed lines), `--timeout <seconds>` (default: 2, max: 5 — higher values are clamped with a warning), `--fail-on <severity>` (`any` (default), `none`, or `informational|low|medium|high|critical`), `-o, --output <json|text>`, `-f, --file <path>`.
 
-Exit codes: 0 = clean, 1 = findings at or above the `--fail-on` threshold (default: any finding).
+Exit codes: 0 = clean, 1 = findings at or above the `--fail-on` threshold (default: any finding) or a block by the organization's prevention workflows. When the scan response carries a server verdict (the organization defines prevention workflows), that verdict decides instead of the default threshold: `Block` fails, `Warn`/`Success` do not. An explicitly passed `--fail-on <severity>` stays a floor under a `Success` verdict; `--fail-on none` always keeps exit 0.
 
 ### Pre-commit Hook
 

@@ -1,8 +1,8 @@
 {
-    "name": "apiiro",
-    "description": "Apiiro security skills and commands. Prevention hooks are a separate opt-in plugin — install `apiiro-prevention`.",
-    "version": "1.6.0",
-    "author": {
-        "name": "Apiiro"
-    }
+  "name": "apiiro",
+  "description": "Apiiro security skills and commands. Prevention hooks are a separate opt-in plugin — install `apiiro-prevention`.",
+  "version": "1.6.0",
+  "author": {
+    "name": "Apiiro"
+  }
 }

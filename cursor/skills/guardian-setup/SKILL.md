@@ -83,7 +83,13 @@ For each command, check the output:
 
 Present a summary table to the user showing which features are enabled and which are not. For disabled features, note: "Contact your Apiiro administrator to enable this feature."
 
-## 6. Offer status line setup (Claude Code only)
+## 6. Configure prevention hooks
+
+- Run: `apiiro init` — detects Claude Code, Cursor, GitHub Copilot CLI, and OpenAI Codex, installs the skills and the prevention hooks (session context, prompt enrichment where the host supports it, and commit scanning); then run `apiiro doctor` to verify the result. The Codex and Copilot CLI hooks need a 2026.09.09 or newer CLI — upgrade first if `apiiro --version` is older
+- Codex runs a hook only after it is trusted once: tell the user to run `codex` in a terminal, type `/hooks`, and trust each Apiiro entry. Until then Codex skips the hooks silently, and a changed or newly added entry (for example after `apiiro hooks update`) needs trusting again
+- Restart Claude Code after setup
+
+## 7. Offer status line setup (Claude Code only)
 
 Apiiro can add a 🛡️ shield to the Claude Code status line that appears when Apiiro Guardian is active.
 
@@ -141,7 +147,7 @@ fi
 
 **Important:** Claude Code pipes a JSON object to the status line script via stdin. The script must read stdin once (e.g., `input=$(cat)`) and parse fields from that variable. Do not read stdin again for the Apiiro check — reuse the existing variable. Check the script to confirm the variable name before appending.
 
-## 7. Done
+## 8. Done
 
 Tell the user they are all set! Summarize:
 - Which features are available in their environment

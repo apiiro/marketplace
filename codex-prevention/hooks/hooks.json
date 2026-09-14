@@ -1,0 +1,45 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${PLUGIN_ROOT}/hooks/run-apiiro.sh\" codex session-start",
+            "commandWindows": "\"%PLUGIN_ROOT%\\hooks\\run-apiiro.cmd\" codex session-start",
+            "timeout": 360,
+            "statusMessage": "Checking Apiiro authentication and security context",
+            "additionalContextLimit": 5000
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${PLUGIN_ROOT}/hooks/run-apiiro.sh\" codex secure-prompt",
+            "commandWindows": "\"%PLUGIN_ROOT%\\hooks\\run-apiiro.cmd\" codex secure-prompt",
+            "timeout": 30,
+            "statusMessage": "Applying Apiiro security context",
+            "additionalContextLimit": 5000
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "^(Bash|shell|local_shell)$",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${PLUGIN_ROOT}/hooks/run-apiiro.sh\" codex pre-commit-scan",
+            "commandWindows": "\"%PLUGIN_ROOT%\\hooks\\run-apiiro.cmd\" codex pre-commit-scan",
+            "timeout": 30
+          }
+        ]
+      }
+    ]
+  }
+}

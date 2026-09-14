@@ -1,0 +1,26 @@
+{
+  "name": "apiiro-prevention",
+  "version": "1.6.0",
+  "description": "Opt-in Apiiro lifecycle hooks for Codex: authentication, security context, and pre-commit screening.",
+  "author": {
+    "name": "Apiiro",
+    "url": "https://apiiro.com"
+  },
+  "homepage": "https://apiiro.com",
+  "repository": "https://github.com/apiiro/marketplace",
+  "license": "MIT",
+  "keywords": [
+    "security",
+    "appsec",
+    "hooks"
+  ],
+  "hooks": "./hooks/hooks.json",
+  "interface": {
+    "displayName": "Apiiro Prevention",
+    "shortDescription": "Security guardrails for Codex sessions",
+    "longDescription": "Authenticate with Apiiro, add repository security context, and screen commit commands during Codex sessions.",
+    "developerName": "Apiiro",
+    "category": "Security",
+    "websiteURL": "https://apiiro.com"
+  }
+}

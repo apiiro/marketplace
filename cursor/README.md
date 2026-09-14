@@ -111,7 +111,7 @@ repos:
 
 ### AI coding agent setup
 
-The recommended setup detects Claude Code and Cursor, installs their skills and prevention hooks, then verifies the result:
+The recommended setup detects Claude Code, Cursor, GitHub Copilot CLI, and OpenAI Codex, installs their skills and prevention hooks, then verifies the result:
 
 ```bash
 apiiro init
@@ -121,7 +121,7 @@ apiiro doctor
 Common options:
 
 ```bash
-apiiro init --claude          # Claude only; use --cursor or --all as needed
+apiiro init --claude          # Claude only; --cursor, --copilot, and --codex are also available
 apiiro init --skills-only     # Skip prevention hooks
 apiiro init --dry-run         # Preview file changes
 apiiro init --non-interactive # Unattended / MDM setup
@@ -135,7 +135,25 @@ Restart Claude Code after setup. For skills without prevention hooks, use `apiir
 npx skills add apiiro/marketplace
 ```
 
-Manual Claude setup remains available through `/plugin marketplace add apiiro/marketplace`, followed by `/plugin install apiiro@apiiro` and, optionally, `/plugin install apiiro-prevention@apiiro`.
+Marketplace plugins are also available for interactive installs. Each host offers
+an `apiiro` skills plugin and an opt-in `apiiro-prevention` hooks plugin:
+
+```bash
+# OpenAI Codex
+codex plugin marketplace add apiiro/marketplace
+codex plugin add apiiro@apiiro
+codex plugin add apiiro-prevention@apiiro
+
+# GitHub Copilot CLI
+copilot plugin marketplace add apiiro/marketplace
+copilot plugin install apiiro@apiiro
+copilot plugin install apiiro-prevention@apiiro
+```
+
+Claude Code and Cursor expose the same two plugin names through their plugin
+browsers. Choose either the prevention plugin or `apiiro init`/`apiiro hooks
+<agent> install` for a host, not both, because hosts combine hook sources. Fleet
+and Jamf deployments should continue using `apiiro init --non-interactive`.
 
 Available skills: `guardian-risks`, `guardian-fix`, `guardian-query`, `guardian-threat-model`, `guardian-scan`, `guardian-secure-prompt`.
 
@@ -170,6 +188,10 @@ apiiro fast-scan config             # Get scan configuration
 apiiro fast-scan secrets --timeout 5      # Scan budget in seconds (default 2, max 5)
 apiiro fast-scan all --commit <sha> --base-commit <ref>   # Attribute the scan to a commit / diff against a baseline ref (both default: HEAD)
 ```
+
+Exit codes: 0 = clean, 1 = findings at or above the `--fail-on` threshold (default: any finding), a block by your organization's prevention workflows, or a scanner failure.
+
+When your organization defines prevention (FastScan) workflows, the scan response carries a server verdict and that verdict decides the exit code instead of the default `--fail-on` threshold — `Block` fails the run, `Warn` and `Success` do not, even when High/Critical findings are present. An explicitly passed `--fail-on <severity>` stays a floor (findings at or above it still fail the run under a `Success` verdict), and `--fail-on none` always keeps exit 0 (report-only). Without a verdict the `--fail-on` behavior is unchanged.
 
 ### Diff Scan
 
@@ -268,7 +290,7 @@ apiiro guardian repository clear     # Clear cached repo info
 
 ### Hooks
 
-Git pre-commit hook for automatic security scanning, plus CLI-managed prevention hooks for Claude Code and Cursor.
+Git pre-commit scanning plus lifecycle hooks for Claude Code, Cursor, GitHub Copilot CLI, and OpenAI Codex. The agent hooks authenticate at session start and add security context where each host protocol permits it.
 
 ```bash
 apiiro hooks pre-commit install     # Install pre-commit hook
@@ -284,15 +306,30 @@ apiiro hooks cursor install         # Install the Cursor prevention hook
 apiiro hooks cursor status          # Check hook status and integrity
 apiiro hooks cursor uninstall       # Remove the hook
 
+apiiro hooks codex install          # Install the Codex session, prompt, and pre-tool hooks (then trust each entry once, see below)
+apiiro hooks codex status           # Check which hooks are installed
+apiiro hooks codex uninstall        # Remove the hooks
+
+apiiro hooks copilot install        # Install the Copilot CLI user hook file
+apiiro hooks copilot status         # Check which hooks are installed
+apiiro hooks copilot uninstall      # Remove the hook
+
 apiiro hooks update                 # Refresh locally-installed hook artifacts once out of date
 apiiro hooks update --dry-run       # Preview without making changes
 ```
 
-Restart Claude Code after installing or uninstalling its plugin for the change to take effect.
+Restart Claude Code after installing or uninstalling its plugin for the change to take effect. Copilot CLI does not support per-prompt output from config-file hooks, so Apiiro adds its context at session start there. The `apiiro hooks <agent> install` commands are the non-interactive Jamf fallback; the Codex and Copilot marketplaces package the same lifecycle definitions for interactive installation.
+
+Codex runs a hook only after you trust it once: run `codex` in a terminal, type `/hooks`, and trust each Apiiro entry (one per hook). Until then Codex skips the hook silently — the desktop app does not prompt — and editing a hook requires trusting that entry again. `apiiro hooks update` (also run by `apiiro update`) repairs existing Codex and Copilot CLI user installs whose entries are missing or outdated (a machine-wide managed install is left to your administrator); review the changed Codex entries in `/hooks` afterwards.
+
+Two optional files under `.apiiro/` tune the hooks:
+
+- `hooks-config.json` / `hooks-config.local.json` (project `./.apiiro/` first, then `~/.apiiro/`) — `{"<hook-key>": true}` disables that hook; unset means enabled. Manage with `apiiro hooks config`.
+- `scan-ignore.json` — `{"ignore": [{"rule": "<rule-id>", "file": "<path | dir/** | *.ext>"}], "ignorePatterns": ["<glob>"]}` suppresses findings by rule and/or file, or any matched value.
 
 ### Doctor
 
-Unified health check for your Apiiro setup — CLI version, auth state, per-agent skills, Claude Code plugin status, Cursor hook integrity, pre-commit hook, and hook toggles. Works without authentication.
+Unified health check for your Apiiro setup — CLI version, auth state, per-agent skills, Claude Code plugin status, Cursor hook integrity, Copilot/Codex hook configuration, pre-commit hook, and hook toggles. Works without authentication.
 
 ```bash
 apiiro doctor           # Human-readable report
@@ -328,13 +365,14 @@ Most commands support:
 | `APIIRO_CA_EXPORT_MAX_BUFFER_BYTES` | Max bytes read when exporting OS CA certificates. | `104857600` |
 | `APIIRO_FORCE_SECURITY_EXPORT` | macOS: set to `1` to force keychain export via `security` for OS roots. | — |
 | `APIIRO_TELEMETRY` | Set to `0` to disable anonymous usage analytics. | enabled |
+| `APIIRO_NO_UPDATE_NOTIFIER` | Set to any value to silence the new-version notice. | — |
 | `DO_NOT_TRACK` | Standard opt-out convention; also disables anonymous usage analytics. | — |
 | `APIIRO_CLIENT` | Surface invoking the CLI: `cli` or `ide`. Used in analytics only. | `cli` |
 | `APIIRO_CLIENT_VERSION` | Version of the invoking surface (e.g. IDE extension version). | CLI version when `APIIRO_CLIENT=cli` |
 
 ## Privacy & Telemetry
 
-The CLI may send anonymous usage analytics (command name, success/failure, duration, OS, CLI version, client surface, and tenant id from your access token) to help Apiiro understand which features are used. No source code, repository URLs, file paths, finding details, email addresses, or tokens are collected.
+The CLI may send anonymous usage analytics (command name, success/failure, duration, OS, CLI version, client surface, and tenant id from your access token) to help Apiiro understand which features are used. It also records when a pre-commit scan is bypassed with `git commit --no-verify`, together with the coding-agent surface the bypass came from. No source code, repository URLs, file paths, finding details, email addresses, or tokens are collected.
 
 The first time analytics would be recorded in an interactive terminal, the CLI prints a one-time notice on stderr. Telemetry is disabled automatically in CI environments, and you can opt out at any time with `APIIRO_TELEMETRY=0` or the standard `DO_NOT_TRACK=1`.
 

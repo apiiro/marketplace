@@ -1,0 +1,26 @@
+{
+  "name": "apiiro",
+  "owner": {
+    "name": "Apiiro"
+  },
+  "metadata": {
+    "description": "Apiiro security plugins for GitHub Copilot CLI",
+    "version": "1.6.0"
+  },
+  "plugins": [
+    {
+      "name": "apiiro",
+      "description": "Apiiro security skills for GitHub Copilot CLI",
+      "version": "1.6.0",
+      "source": "copilot",
+      "category": "security"
+    },
+    {
+      "name": "apiiro-prevention",
+      "description": "Apiiro prevention hooks for GitHub Copilot CLI",
+      "version": "1.6.0",
+      "source": "copilot-prevention",
+      "category": "security"
+    }
+  ]
+}

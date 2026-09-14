@@ -1,6 +1,12 @@
 {
     "version": 1,
     "hooks": {
+        "sessionStart": [
+            {
+                "command": "apiiro hooks cursor session-start",
+                "timeout": 360
+            }
+        ],
         "beforeSubmitPrompt": [
             {
                 "command": "apiiro hooks cursor secure-prompt-check"

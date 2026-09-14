@@ -1,0 +1,19 @@
+{
+  "name": "apiiro-prevention",
+  "description": "Opt-in Apiiro lifecycle hooks for GitHub Copilot CLI: authentication, security context, and pre-commit screening.",
+  "version": "1.6.0",
+  "author": {
+    "name": "Apiiro",
+    "url": "https://apiiro.com"
+  },
+  "homepage": "https://apiiro.com",
+  "repository": "https://github.com/apiiro/marketplace",
+  "license": "MIT",
+  "keywords": [
+    "security",
+    "appsec",
+    "hooks"
+  ],
+  "category": "security",
+  "hooks": "hooks/hooks.json"
+}
