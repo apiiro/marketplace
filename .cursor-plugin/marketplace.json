@@ -12,7 +12,7 @@
         {
             "name": "apiiro-prevention",
             "source": "cursor-prevention",
-            "description": "Apiiro prevention hooks (opt-in): prompt security enrichment and pre-commit secret scanning"
+            "description": "Apiiro prevention hooks (opt-in): session security context and pre-commit secret scanning"
         }
     ]
 }

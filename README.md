@@ -155,7 +155,7 @@ browsers. Choose either the prevention plugin or `apiiro init`/`apiiro hooks
 <agent> install` for a host, not both, because hosts combine hook sources. Fleet
 and Jamf deployments should continue using `apiiro init --non-interactive`.
 
-Available skills: `guardian-risks`, `guardian-fix`, `guardian-query`, `guardian-threat-model`, `guardian-scan`, `guardian-secure-prompt`.
+Available skills: `guardian-risks`, `guardian-fix`, `guardian-inventory`, `guardian-api`, `guardian-query`, `guardian-threat-model`, `guardian-scan`, `guardian-secure-prompt`, `guardian-setup`.
 
 ## Authentication
 
@@ -302,7 +302,7 @@ apiiro hooks claude status             # Check status
 apiiro hooks claude uninstall          # Disable the plugin
 apiiro hooks claude install --system   # Target Claude Code managed settings (admin/MDM scope)
 
-apiiro hooks cursor install         # Install the Cursor prevention hook
+apiiro hooks cursor install         # Install the Cursor session and commit-scan hooks
 apiiro hooks cursor status          # Check hook status and integrity
 apiiro hooks cursor uninstall       # Remove the hook
 
@@ -318,14 +318,25 @@ apiiro hooks update                 # Refresh locally-installed hook artifacts o
 apiiro hooks update --dry-run       # Preview without making changes
 ```
 
-Restart Claude Code after installing or uninstalling its plugin for the change to take effect. Copilot CLI does not support per-prompt output from config-file hooks, so Apiiro adds its context at session start there. The `apiiro hooks <agent> install` commands are the non-interactive Jamf fallback; the Codex and Copilot marketplaces package the same lifecycle definitions for interactive installation.
+Restart Claude Code after installing or uninstalling its plugin for the change to take effect. Copilot CLI does not support per-prompt output from config-file hooks, and Cursor's prompt hook cannot inject context at all, so on both hosts Apiiro adds its context at session start and scans at commit time. The `apiiro hooks <agent> install` commands are the non-interactive Jamf fallback; the Codex and Copilot marketplaces package the same lifecycle definitions for interactive installation.
 
-Codex runs a hook only after you trust it once: run `codex` in a terminal, type `/hooks`, and trust each Apiiro entry (one per hook). Until then Codex skips the hook silently — the desktop app does not prompt — and editing a hook requires trusting that entry again. `apiiro hooks update` (also run by `apiiro update`) repairs existing Codex and Copilot CLI user installs whose entries are missing or outdated (a machine-wide managed install is left to your administrator); review the changed Codex entries in `/hooks` afterwards.
+Codex runs a hook only after you trust it once: run `codex` in a terminal, type `/hooks`, and trust each Apiiro entry (one per hook). Until then Codex skips the hook silently — the desktop app does not prompt — and editing a hook requires trusting that entry again. `apiiro hooks update` (also run by `apiiro update`) repairs existing Cursor, Codex, and Copilot CLI user installs whose entries are missing or outdated (a machine-wide managed install is left to your administrator); review the changed Codex entries in `/hooks` afterwards.
 
-Two optional files under `.apiiro/` tune the hooks:
+When your organization defines prevention workflows, the commit scan carries a server verdict and each host renders it through its own hook protocol. A `Block` verdict stops the commit on every host, with the matched workflows and the findings behind them. A `Warn` verdict lets the commit through, and whether you see the warning depends on the host:
 
-- `hooks-config.json` / `hooks-config.local.json` (project `./.apiiro/` first, then `~/.apiiro/`) — `{"<hook-key>": true}` disables that hook; unset means enabled. Manage with `apiiro hooks config`.
-- `scan-ignore.json` — `{"ignore": [{"rule": "<rule-id>", "file": "<path | dir/** | *.ext>"}], "ignorePatterns": ["<glob>"]}` suppresses findings by rule and/or file, or any matched value.
+| Host | `Warn` verdict |
+|------|----------------|
+| Claude Code | Commit proceeds, warning shown |
+| OpenAI Codex | Commit proceeds, warning shown |
+| Cursor | Commit proceeds, **no message shown** |
+| GitHub Copilot CLI | Commit proceeds, **no message shown** |
+
+Cursor's `preToolUse` protocol attaches messages only to a denied action, and the published GitHub Copilot CLI `preToolUse` contract defines no field for surfacing a warning to you on an allowed call either, so on both hosts a hook cannot let a commit through and still warn you about it. Blocking works the same there as everywhere else. What is lost is every message the hook would attach to a commit it allows — the warning above, and the notice that a scan finished only partially. Until those protocols carry a user-visible message on an allowed action, run `apiiro fast-scan all --staged` on Cursor and Copilot CLI to see warning-level prevention results.
+
+Two optional files tune the hooks:
+
+- `~/.apiiro/hooks-config.json` — `{"<hook-key>": true}` disables that hook; unset means enabled. Manage with `apiiro hooks config`.
+- `./.apiiro/scan-ignore.json` — `{"ignore": [{"rule": "<rule-id>", "file": "<path | dir/** | *.ext>"}], "ignorePatterns": ["<glob>"]}` suppresses findings by rule and/or file, or any matched value.
 
 ### Doctor
 
@@ -369,12 +380,16 @@ Most commands support:
 | `DO_NOT_TRACK` | Standard opt-out convention; also disables anonymous usage analytics. | — |
 | `APIIRO_CLIENT` | Surface invoking the CLI: `cli` or `ide`. Used in analytics only. | `cli` |
 | `APIIRO_CLIENT_VERSION` | Version of the invoking surface (e.g. IDE extension version). | CLI version when `APIIRO_CLIENT=cli` |
+| `CODEX_HOME` | OpenAI Codex config directory used for agent detection, hook installation, status, and doctor. Skills stay in `~/.agents/skills`, where Codex reads them. | `~/.codex` |
+| `COPILOT_HOME` | GitHub Copilot CLI config directory used for agent detection, hook installation, skills, status, and doctor. | `~/.copilot` |
 
 ## Privacy & Telemetry
 
-The CLI may send anonymous usage analytics (command name, success/failure, duration, OS, CLI version, client surface, and tenant id from your access token) to help Apiiro understand which features are used. It also records when a pre-commit scan is bypassed with `git commit --no-verify`, together with the coding-agent surface the bypass came from. No source code, repository URLs, file paths, finding details, email addresses, or tokens are collected.
+The CLI may send anonymous usage analytics (command name, success/failure, duration, OS, CLI version, client surface, and tenant id from your access token) to help Apiiro understand which features are used. It also records when a pre-commit scan is bypassed with `git commit --no-verify`, together with the coding-agent surface the bypass came from. Analytics never collect source code, repository URLs, file paths, finding details, email addresses, or tokens.
 
 The first time analytics would be recorded in an interactive terminal, the CLI prints a one-time notice on stderr. Telemetry is disabled automatically in CI environments, and you can opt out at any time with `APIIRO_TELEMETRY=0` or the standard `DO_NOT_TRACK=1`.
+
+Separately from analytics, a bypassed pre-commit scan is also reported to **your own Apiiro tenant**, so your administrators can see in the Guardian actions log that a scan was skipped. That report carries your repository's git URL, branch, and the coding-agent surface — the same repository context the scans themselves send — and never any file content or findings. It is a security record rather than product analytics, so neither the analytics opt-out above nor `apiiro hooks config disable disablePreCommitScan` suppresses it; it is only sent when you are signed in to Apiiro, and a failure to send it never blocks your commit.
 
 ## Troubleshooting
 

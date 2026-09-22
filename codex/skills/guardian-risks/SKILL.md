@@ -1,7 +1,7 @@
 ---
 name: guardian-risks
 description: |
-  Apiiro CLI commands for viewing and inspecting risks in a repository: list, filter, and get details on known risks. Use this skill whenever the user asks about security risks, vulnerabilities, or findings in their repository. Also trigger when they want to list, filter, or investigate risks by category or severity. Even without mentioning "apiiro", trigger when the user asks things like "what risks does this repo have", "any vulnerabilities here?", "show me the security findings", or "what's the risk level of this project". For fixing or remediating risks, use the guardian-fix skill instead.
+  Apiiro CLI commands for viewing and inspecting risks in a repository: list, filter, and get details on known risks. Use this skill whenever the user asks about security risks, vulnerabilities, or findings in their repository. Also trigger when they want to list, filter, or investigate risks by category or severity. Even without mentioning "apiiro", trigger when the user asks things like "what risks does this repo have", "any vulnerabilities here?", "show me the security findings", or "what's the risk level of this project". Scope is a single repository: for org-wide or cross-repo questions ("top risks across the org", "our overall security posture"), use the guardian-query skill with `--global` instead. For fixing or remediating risks, use the guardian-fix skill instead.
 ---
 
 # Apiiro Risks

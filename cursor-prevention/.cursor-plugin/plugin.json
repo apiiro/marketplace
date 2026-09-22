@@ -1,7 +1,7 @@
 {
   "name": "apiiro-prevention",
-  "description": "Apiiro prevention hooks for Cursor: prompt security enrichment and pre-commit secret scanning. Opt-in companion to the apiiro plugin.",
-  "version": "1.6.0",
+  "description": "Apiiro prevention hooks for Cursor: session security context and pre-commit secret scanning. Opt-in companion to the apiiro plugin.",
+  "version": "1.6.1",
   "author": {
     "name": "Apiiro"
   },

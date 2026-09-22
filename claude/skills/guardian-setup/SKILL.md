@@ -54,24 +54,21 @@ Download `apiiro-win.exe` from https://github.com/apiiro/marketplace/releases
 
 - Run: `apiiro auth status`
 
-## 4. Check version compatibility
+## 4. Check for a newer version
 
-- Compare installed version (`apiiro --version`) with minimum required version 1.4.2
-- If older, upgrade using the same method used to install
+- Run: `apiiro update --check`
+- If a newer release exists, run `apiiro update` for the compiled binary. It skips Homebrew and npm installs: use `brew upgrade apiiro` or `npm i -g apiiro-cli@latest` for those
 
 ## 5. Check available features
 
 Probe which features are enabled for the user's environment. Run these commands and collect results:
 
 ```bash
-# Fast Scan — secrets
-apiiro fast-scan secrets --file /dev/null 2>&1
-
-# Fast Scan — OSS
-apiiro fast-scan oss --file /dev/null 2>&1
+# Fast Scan (secrets + OSS) — fetches the tenant's scan configuration
+apiiro fast-scan config 2>&1
 
 # Guardian
-apiiro guardian query "test" 2>&1
+apiiro guardian query "test" --global 2>&1
 
 # Threat Modeling
 apiiro threat-model "test" 2>&1
@@ -81,12 +78,16 @@ For each command, check the output:
 - If it contains "not enabled" → the feature is **not available** in this environment
 - Otherwise → the feature is **available**
 
+`-f/--file` is an output flag on every command (it saves the result to a file), so do not pass it to probe a feature.
+
 Present a summary table to the user showing which features are enabled and which are not. For disabled features, note: "Contact your Apiiro administrator to enable this feature."
 
 ## 6. Configure prevention hooks
 
 - Run: `apiiro init` — detects Claude Code, Cursor, GitHub Copilot CLI, and OpenAI Codex, installs the skills and the prevention hooks (session context, prompt enrichment where the host supports it, and commit scanning); then run `apiiro doctor` to verify the result. The Codex and Copilot CLI hooks need a 2026.09.09 or newer CLI — upgrade first if `apiiro --version` is older
+- Only Claude Code and Codex enrich each prompt; Cursor and Copilot CLI get session context plus commit scanning, because neither host's prompt hook can inject context
 - Codex runs a hook only after it is trusted once: tell the user to run `codex` in a terminal, type `/hooks`, and trust each Apiiro entry. Until then Codex skips the hooks silently, and a changed or newly added entry (for example after `apiiro hooks update`) needs trusting again
+- For skills without prevention hooks, run `apiiro agents install` instead (`--agent claude|cursor|copilot|codex` for one host, `--all` for every known host); `apiiro agents status` shows what is installed
 - Restart Claude Code after setup
 
 ## 7. Offer status line setup (Claude Code only)
@@ -147,7 +148,10 @@ fi
 
 **Important:** Claude Code pipes a JSON object to the status line script via stdin. The script must read stdin once (e.g., `input=$(cat)`) and parse fields from that variable. Do not read stdin again for the Apiiro check — reuse the existing variable. Check the script to confirm the variable name before appending.
 
-## 8. Done
+## 8. Verify and finish
+
+- Run: `apiiro doctor` — checks CLI version, auth, per-agent skills, plugin status, hook integrity, pre-commit hook, and hook toggles in one report
+- Fix anything it flags before telling the user they are done
 
 Tell the user they are all set! Summarize:
 - Which features are available in their environment
