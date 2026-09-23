@@ -163,6 +163,10 @@ Available skills: `guardian-risks`, `guardian-fix`, `guardian-inventory`, `guard
 # Login via OAuth (opens browser)
 apiiro login
 
+# Login by entering a short code in any browser — when the usual browser
+# sign-in cannot complete on this machine
+apiiro login --device
+
 # Check status
 apiiro auth status
 

@@ -49,6 +49,7 @@ Download `apiiro-win.exe` from https://github.com/apiiro/marketplace/releases
 
 - Run: `apiiro login`
 - This opens a browser window — sign in with your Apiiro account
+- If the usual browser sign-in cannot complete (no browser opens, or the local callback is blocked), run `apiiro login --device` and enter the printed code in any browser instead
 
 ## 3. Verify authentication
 

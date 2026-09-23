@@ -1,6 +1,6 @@
 {
   "name": "apiiro-prevention",
-  "version": "1.6.1",
+  "version": "1.7.0",
   "description": "Opt-in Apiiro lifecycle hooks for Codex: authentication, security context, and pre-commit screening.",
   "author": {
     "name": "Apiiro",
