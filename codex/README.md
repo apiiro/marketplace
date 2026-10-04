@@ -84,14 +84,9 @@ sudo yum install -y https://github.com/apiiro/marketplace/releases/latest/downlo
 
 ### Organization-wide deployment (macOS/MDM)
 
-Fleet rollouts use the same one-line installer — no package to build or upload. From an MDM policy script (or any login script), run as each user:
+Jamf deployments use the [versioned policy script](jamf/README.md), with no package to build or upload. The policy downloads a pinned public CLI release, verifies its checksum, and installs one root-owned binary at `/opt/apiiro/bin/apiiro` before configuring the logged-in user's skills and hooks.
 
-```bash
-curl -fsSL https://apiiro.com/install.sh | bash
-apiiro init --non-interactive
-```
-
-Pin the fleet to a specific version with `APIIRO_VERSION=<version>`. `apiiro init --non-interactive` detects each user's installed AI coding agents and wires in Agent Skills and prevention hooks with no prompts. Managed-device admins: see your Apiiro contact for the ready-made Jamf policy and extension attribute scripts (self-bootstrapping, with version pinning and drift repair).
+The default profile enables Secure Prompt for Claude Code and leaves scanning disabled. Set Parameter 6 to the approved release version; use Parameter 7=`all` when ready to enable the other public prevention capabilities. Parameter 8 defaults to `published`; use `pkg` to configure an approved package build without downloading or replacing its binary. Keep opted-out computers excluded from the policy scope. Read the [Jamf guide](jamf/README.md) for triggers, authentication, and verification.
 
 ### pre-commit
 
@@ -322,6 +317,10 @@ apiiro hooks update                 # Refresh locally-installed hook artifacts o
 apiiro hooks update --dry-run       # Preview without making changes
 ```
 
+With server support for session context, Claude Code prevention hooks also send bounded repo-relative file paths and sanitized ticket/link references so follow-up prompts retain the task context. A link reference keeps only its scheme and host, so paths, query strings, and credentials never leave your machine, and these hooks send no edit contents, diffs, or tool response bodies and never block an edit. Secret-pattern redaction and length bounds apply to the prompt text that prompt enrichment sends; session records expire after 24 hours without use. `apiiro hooks config disable disableEnrichSession` turns these context hooks off together with the session-start context.
+
+These context hooks run in the background (Claude Code does not wait on them before continuing), each capped at a few seconds so a slow network never leaves a process behind. In a headless `claude -p` run, Claude Code can end the session before a background hook finishes, so a fragment from the run's final tool call may not be recorded.
+
 Restart Claude Code after installing or uninstalling its plugin for the change to take effect. Copilot CLI does not support per-prompt output from config-file hooks, and Cursor's prompt hook cannot inject context at all, so on both hosts Apiiro adds its context at session start and scans at commit time. The `apiiro hooks <agent> install` commands are the non-interactive Jamf fallback; the Codex and Copilot marketplaces package the same lifecycle definitions for interactive installation.
 
 Codex runs a hook only after you trust it once: run `codex` in a terminal, type `/hooks`, and trust each Apiiro entry (one per hook). Until then Codex skips the hook silently — the desktop app does not prompt — and editing a hook requires trusting that entry again. `apiiro hooks update` (also run by `apiiro update`) repairs existing Cursor, Codex, and Copilot CLI user installs whose entries are missing or outdated (a machine-wide managed install is left to your administrator); review the changed Codex entries in `/hooks` afterwards.
@@ -384,6 +383,7 @@ Most commands support:
 | `DO_NOT_TRACK` | Standard opt-out convention; also disables anonymous usage analytics. | — |
 | `APIIRO_CLIENT` | Surface invoking the CLI: `cli` or `ide`. Used in analytics only. | `cli` |
 | `APIIRO_CLIENT_VERSION` | Version of the invoking surface (e.g. IDE extension version). | CLI version when `APIIRO_CLIENT=cli` |
+| `CLAUDE_CONFIG_DIR` | Claude Code config directory used for agent detection, plugin setup, skills, status, and doctor. | `~/.claude` |
 | `CODEX_HOME` | OpenAI Codex config directory used for agent detection, hook installation, status, and doctor. Skills stay in `~/.agents/skills`, where Codex reads them. | `~/.codex` |
 | `COPILOT_HOME` | GitHub Copilot CLI config directory used for agent detection, hook installation, skills, status, and doctor. | `~/.copilot` |
 

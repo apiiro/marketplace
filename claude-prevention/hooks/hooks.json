@@ -1,37 +1,61 @@
 {
-    "hooks": {
-        "SessionStart": [
-            {
-                "hooks": [
-                    {
-                        "type": "command",
-                        "command": "apiiro hooks claude session-start",
-                        "async": true,
-                        "timeout": 300
-                    }
-                ]
-            }
-        ],
-        "UserPromptSubmit": [
-            {
-                "hooks": [
-                    {
-                        "type": "command",
-                        "command": "apiiro hooks claude secure-prompt"
-                    }
-                ]
-            }
-        ],
-        "PreToolUse": [
-            {
-                "matcher": "Bash",
-                "hooks": [
-                    {
-                        "type": "command",
-                        "command": "apiiro hooks claude pre-commit-scan"
-                    }
-                ]
-            }
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "apiiro hooks claude session-start",
+            "async": true,
+            "timeout": 300
+          }
         ]
-    }
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "apiiro hooks claude secure-prompt",
+            "timeout": 30
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "apiiro hooks claude pre-commit-scan",
+            "timeout": 30
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "^(WebFetch|Read|mcp__.*)$",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "apiiro hooks claude fragment-tool-result",
+            "async": true
+          }
+        ]
+      },
+      {
+        "matcher": "^(Edit|Write|MultiEdit)$",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "apiiro hooks claude fragment-file-touch",
+            "async": true
+          }
+        ]
+      }
+    ]
+  }
 }
