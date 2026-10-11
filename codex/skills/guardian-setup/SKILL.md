@@ -1,7 +1,6 @@
 ---
 name: guardian-setup
-description: Install Apiiro CLI, authenticate, verify version, check available features, and configure hooks
-user_invocable: true
+description: "Use to install, update, or authenticate the Apiiro CLI, verify its version and available features, configure IDE and pre-commit hooks, or when an apiiro command fails with not found or auth errors."
 ---
 
 You are setting up Apiiro. Do the following in order and confirm each step:

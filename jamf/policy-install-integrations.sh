@@ -7,6 +7,7 @@
 #   $6  required exact public CLI version
 #   $7  hook profile: secure-prompt (default) or all
 #   $8  binary source: published (default) or pkg
+#   $9  optional comma-separated OAuth environment IDs (empty: unrestricted)
 
 set -euo pipefail
 
@@ -17,9 +18,11 @@ PATH_FILE="/etc/paths.d/apiiro"
 JAMF_BIN="/usr/local/bin/jamf"
 CLI_BIN="/opt/apiiro/bin/apiiro"
 TENANT_MARKER="# apiiro-cli tenant config"
+AUTH_MARKER="# apiiro-cli internal auth config"
 RELEASE_REPO="apiiro/marketplace"
 RELEASE_BASE_URL="https://github.com/$RELEASE_REPO/releases/download/v${6:-}"
 TENANT_URL=""
+OAUTH_ALLOWED_ENVS=""
 DOWNLOAD_DIR=""
 
 # Test-only seams. Production keeps the release host and managed path fixed.
@@ -35,17 +38,15 @@ run_as_console_user() {
   local uid="$1" user="$2"
   shift 2
   if [[ "${APIIRO_TEST_MODE:-}" == "1" ]]; then
-    HOME="$USER_HOME" USER="$user" LOGNAME="$user" "$@"
+    HOME="$USER_HOME" USER="$user" LOGNAME="$user" APIIRO_OAUTH_ALLOWED_ENVS="$OAUTH_ALLOWED_ENVS" "$@"
   elif [[ "$(id -u)" -eq 0 ]]; then
+    local -a env_args=(USER="$user" LOGNAME="$user" HOME="$USER_HOME" PATH="/opt/apiiro/bin:/usr/local/bin:/usr/bin:/bin")
+    [[ -n "$OAUTH_ALLOWED_ENVS" ]] && env_args+=(APIIRO_OAUTH_ALLOWED_ENVS="$OAUTH_ALLOWED_ENVS")
     if [[ -n "$TENANT_URL" ]]; then
-      launchctl asuser "$uid" sudo -u "$user" -H /usr/bin/env -i \
-        USER="$user" LOGNAME="$user" HOME="$USER_HOME" \
-        PATH="/opt/apiiro/bin:/usr/local/bin:/usr/bin:/bin" \
-        APIIRO_API_URL="$TENANT_URL" "$@"
+      env_args+=(APIIRO_API_URL="$TENANT_URL")
+      launchctl asuser "$uid" sudo -u "$user" -H /usr/bin/env -i "${env_args[@]}" "$@"
     else
-      launchctl asuser "$uid" sudo -u "$user" -H /usr/bin/env -i \
-        USER="$user" LOGNAME="$user" HOME="$USER_HOME" \
-        PATH="/opt/apiiro/bin:/usr/local/bin:/usr/bin:/bin" "$@"
+      launchctl asuser "$uid" sudo -u "$user" -H /usr/bin/env -i "${env_args[@]}" "$@"
     fi
   else
     log "ERROR: managed hook installation must run as root."
@@ -175,6 +176,92 @@ clear_claude_tenant_env() {
   }
 }
 
+write_claude_oauth_env() {
+  local uid="$1" user="$2" allowed="$3" settings="$USER_HOME/.claude/settings.json"
+  # shellcheck disable=SC2016
+  run_as_console_user "$uid" "$user" /bin/bash -c '
+    set -eu
+    settings="$1"
+    allowed="$2"
+    state="$HOME/.apiiro/jamf-oauth-allowed-envs"
+    [[ ! -L "$HOME" && ! -L "$HOME/.claude" && ! -L "$settings" && ! -L "$HOME/.apiiro" && ! -L "$state" ]] || exit 21
+    mkdir -p "$HOME/.claude" "$HOME/.apiiro"
+    if [[ -z "$allowed" ]]; then
+      [[ -f "$state" ]] || exit 0
+      owned="$(cat "$state")"
+      [[ -f "$settings" ]] || { rm -f "$state"; exit 0; }
+      temp="$(mktemp "${settings}.jamf.XXXXXX")"
+      cp -p "$settings" "$temp"
+      /usr/bin/plutil -convert xml1 "$temp" >/dev/null 2>&1 || { rm -f "$temp"; exit 22; }
+      current="$(/usr/bin/plutil -extract env.APIIRO_OAUTH_ALLOWED_ENVS raw -o - "$temp" 2>/dev/null || true)"
+      if [[ "$current" == "$owned" ]]; then
+        /usr/bin/plutil -remove env.APIIRO_OAUTH_ALLOWED_ENVS "$temp" >/dev/null 2>&1 || true
+        converted="${temp}.json"
+        /usr/bin/plutil -convert json -o "$converted" "$temp" >/dev/null 2>&1 || { rm -f "$temp" "$converted"; exit 23; }
+        mode="$(stat -f %Lp "$settings" 2>/dev/null || printf 600)"
+        mv "$converted" "$settings"
+        chmod "$mode" "$settings"
+      fi
+      rm -f "$temp"
+      rm -f "$state"
+      exit 0
+    fi
+    existing_state=0
+    [[ -f "$state" ]] && existing_state=1
+    if [[ -f "$settings" && "$existing_state" -eq 1 ]]; then
+      owned="$(cat "$state")"
+      current="$(/usr/bin/plutil -extract env.APIIRO_OAUTH_ALLOWED_ENVS raw -o - "$settings" 2>/dev/null || true)"
+      [[ -z "$current" || "$current" == "$owned" ]] || exit 25
+    fi
+    if [[ -f "$settings" && "$existing_state" -eq 0 ]]; then
+      current="$(/usr/bin/plutil -extract env.APIIRO_OAUTH_ALLOWED_ENVS raw -o - "$settings" 2>/dev/null || true)"
+      if [[ -n "$current" ]]; then
+        [[ "$current" == "$allowed" ]] && exit 0
+        exit 25
+      fi
+    fi
+    temp="$(mktemp "${settings}.jamf.XXXXXX")"
+    if [[ -f "$settings" ]]; then cp -p "$settings" "$temp"; else printf "%s\n" '{}' > "$temp"; fi
+    /usr/bin/plutil -convert xml1 "$temp" >/dev/null 2>&1 || { rm -f "$temp"; exit 22; }
+    /usr/bin/plutil -insert env -dictionary "$temp" >/dev/null 2>&1 || true
+    if ! /usr/bin/plutil -replace env.APIIRO_OAUTH_ALLOWED_ENVS -string "$allowed" "$temp" >/dev/null 2>&1 &&
+       ! /usr/bin/plutil -insert env.APIIRO_OAUTH_ALLOWED_ENVS -string "$allowed" "$temp" >/dev/null 2>&1; then
+      rm -f "$temp"
+      exit 23
+    fi
+    converted="${temp}.json"
+    /usr/bin/plutil -convert json -o "$converted" "$temp" >/dev/null 2>&1 || { rm -f "$temp" "$converted"; exit 24; }
+    mode="$(stat -f %Lp "$settings" 2>/dev/null || printf 600)"
+    mv "$converted" "$settings"
+    chmod "$mode" "$settings"
+    rm -f "$temp"
+    printf "%s\n" "$allowed" > "$state"
+    chmod 600 "$state"
+  ' apiiro-oauth-env-configure "$settings" "$allowed" || {
+    local status=$?
+    case "$status" in
+      21) log "ERROR: unsafe symlink in the Claude OAuth configuration path." ;;
+      22) log "ERROR: Claude settings could not be parsed as JSON (JSON null values are not supported)." ;;
+      23|24) log "ERROR: Claude settings could not be updated or serialized." ;;
+      25) log "ERROR: Claude OAuth environment setting differs from the Jamf-owned value; preserving the existing setting." ;;
+      *) log "ERROR: could not persist the Claude OAuth environment setting (exit $status); check user ownership and write permissions." ;;
+    esac
+    return 1
+  }
+}
+
+write_oauth_zshenv_config() {
+  [[ ! -L "$ZSHENV" ]] || { log "ERROR: refusing to follow a symlink for OAuth environment configuration."; return 1; }
+  remove_marker_block "$AUTH_MARKER" "$ZSHENV"
+  [[ -z "$OAUTH_ALLOWED_ENVS" ]] && { [[ -f "$ZSHENV" ]] && chmod 0644 "$ZSHENV"; return 0; }
+  {
+    printf '\n'
+    printf '%s\n' "$AUTH_MARKER"
+    printf 'export APIIRO_OAUTH_ALLOWED_ENVS=%q\n' "$OAUTH_ALLOWED_ENVS"
+  } >> "$ZSHENV"
+  chmod 0644 "$ZSHENV"
+}
+
 validate_tenant_url() {
   local value="$1"
   [[ "$value" =~ ^https://[A-Za-z0-9.-]+(:[0-9]+)?(/[^[:space:]]*)?$ ]] || {
@@ -202,6 +289,27 @@ validate_binary_source() {
     published|pkg) ;;
     *) log "ERROR: Parameter 8 must be published or pkg."; return 1 ;;
   esac
+}
+
+validate_allowed_envs() {
+  local value="$1" item normalized=""
+  local -a items=()
+  [[ -z "$value" ]] && { OAUTH_ALLOWED_ENVS=""; return 0; }
+  [[ "$value" != ,* && "$value" != *, && "$value" != *,,* && "$value" != *$'\n'* && "$value" != *$'\r'* ]] || {
+    log "ERROR: Parameter 9 must be a comma-separated list of 24-32 character hexadecimal environment IDs."
+    return 1
+  }
+  IFS=',' read -r -a items <<< "$value"
+  for item in "${items[@]}"; do
+    item="$(printf '%s' "$item" | sed 's/^[[:space:]]*//; s/[[:space:]]*$//')"
+    [[ "$item" =~ ^[a-fA-F0-9]{24,32}$ ]] || {
+      log "ERROR: Parameter 9 must be a comma-separated list of 24-32 character hexadecimal environment IDs."
+      return 1
+    }
+    [[ -z "$normalized" ]] || normalized+=','
+    normalized+="$item"
+  done
+  OAUTH_ALLOWED_ENVS="$normalized"
 }
 
 resolve_targets() {
@@ -535,7 +643,7 @@ install_hooks() {
 }
 
 main() {
-  local console_user uid user_home target_param profile version_pin binary_source configure_claude_env=0 agent
+  local console_user uid user_home target_param profile version_pin binary_source configure_claude_env=0 oauth_env_failed=0 agent
   local -a agent_flags=() selected_agents=()
   console_user="$(resolve_console_user)"
   if [[ -z "$console_user" || "$console_user" == "root" || "$console_user" == "loginwindow" ]]; then
@@ -547,12 +655,18 @@ main() {
   user_home="$(resolve_home "$console_user")"; [[ -z "$user_home" ]] && user_home="/Users/$console_user"; USER_HOME="$user_home"
   binary_source="${8:-published}"; validate_binary_source "$binary_source"
   version_pin="${6:-}"; validate_version "$version_pin" "$binary_source"
+  validate_allowed_envs "${9:-}"
   if [[ "${APIIRO_TEST_MODE:-}" == "1" && "${APIIRO_TEST_PATH_ONLY:-}" == "1" ]]; then
     if [[ "$binary_source" == "pkg" ]]; then use_pkg_binary "$version_pin"; else install_public_binary "$version_pin"; fi
     exit 0
   fi
   target_param="${4:-claude}"; resolve_targets "$target_param"; agent_flags=("${AGENT_FLAGS[@]}"); selected_agents=("${SELECTED_AGENTS[@]}")
   for agent in "${selected_agents[@]}"; do [[ "$agent" == "claude" ]] && configure_claude_env=1; done
+  if [[ -n "$OAUTH_ALLOWED_ENVS" ]]; then
+    for agent in "${selected_agents[@]}"; do
+      [[ "$agent" == "claude" ]] || { log "ERROR: Parameter 9 is supported only with Parameter 4 set to claude; $agent cannot persist the OAuth environment restriction."; exit 1; }
+    done
+  fi
   profile="${7:-secure-prompt}"
   case "$profile" in secure-prompt|all) ;; *) log "ERROR: Parameter 7 must be secure-prompt or all."; exit 1 ;; esac
   TENANT_URL="${5:-}"; if [[ -n "$TENANT_URL" ]]; then validate_tenant_url "$TENANT_URL"; fi
@@ -561,11 +675,13 @@ main() {
     exit 0
   fi
   if [[ "$binary_source" == "pkg" ]]; then use_pkg_binary "$version_pin"; else install_public_binary "$version_pin"; fi
+  normalize_user_paths "$console_user" "$user_home"
   if [[ -n "$TENANT_URL" ]]; then write_tenant_config "$TENANT_URL"; else remove_marker_block "$TENANT_MARKER" "$ZSHENV"; fi
   if [[ "$configure_claude_env" -eq 1 && ( "${APIIRO_TEST_MODE:-}" != "1" || "${APIIRO_TEST_RUN_USER_SETTINGS:-}" == "1" ) ]]; then
     if [[ -n "$TENANT_URL" ]]; then write_claude_tenant_env "$uid" "$console_user" "$TENANT_URL"; else clear_claude_tenant_env "$uid" "$console_user"; fi
+    write_claude_oauth_env "$uid" "$console_user" "$OAUTH_ALLOWED_ENVS" || oauth_env_failed=1
   fi
-  normalize_user_paths "$console_user" "$user_home"
+  write_oauth_zshenv_config
   log "Configuring Apiiro hooks for '$console_user' using profile '$profile'"
   if [[ "$profile" == "secure-prompt" ]]; then
     run_as_console_user "$uid" "$console_user" "$CLI_BIN" hooks config disable all
@@ -580,6 +696,7 @@ main() {
   install_hooks "$uid" "$console_user" "${selected_agents[@]}"
   verify_hook_scopes "$uid" "$console_user" "${selected_agents[@]}"
   if [[ -x "$JAMF_BIN" ]]; then "$JAMF_BIN" recon || log "WARN: jamf recon failed (non-fatal)"; fi
+  if [[ "$oauth_env_failed" -ne 0 ]]; then log "ERROR: hooks installed, but the OAuth environment restriction was not persisted in Claude settings."; exit 1; fi
   log "Integrations install complete for '$console_user'."
 }
 

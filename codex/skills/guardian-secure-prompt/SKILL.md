@@ -1,7 +1,6 @@
 ---
 name: guardian-secure-prompt
-description: |
-  Apiiro CLI command for enhancing developer prompts with security considerations before coding begins. Takes a coding task description and returns the same task with security requirements injected — preserving the original business intent while adding security guardrails. Use this skill whenever the user wants to improve a coding task with security guidance, add security requirements to a task before starting implementation, or get a security-enhanced version of a prompt. Trigger on phrases like "make this prompt more secure", "add security to my task", "what security should I consider for this feature", or when the user is about to start a coding task and wants security baked in. This is different from threat-model (which produces a full STRIDE analysis report) — secure-prompt enhances a *task description* the user is about to implement.
+description: "Use when the user is about to implement a coding task and wants Apiiro security requirements added to it (\"make this prompt more secure\", \"what security should I consider\"). Full STRIDE report on a design: guardian-threat-model."
 ---
 
 # Apiiro Secure Prompt

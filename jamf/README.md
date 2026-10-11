@@ -29,6 +29,7 @@ Use the scripts from the same approved release as the CLI. Older releases such a
 | 6 | Required exact approved CLI version, without `v` | None |
 | 7 | Feature profile: `secure-prompt` or `all` | `secure-prompt` |
 | 8 | Binary source: `published` or `pkg` | `published` |
+| 9 | Optional comma-separated 24-32 character hexadecimal OAuth environment IDs; empty leaves authorization unrestricted | Empty |
 
 The `secure-prompt` profile enables prompt enrichment and disables commit scans,
 prompt secret scanning, and session enrichment. SessionStart authentication remains
@@ -62,6 +63,54 @@ one before switching the same Mac between them. Both use the same binary path;
 concurrent policies can overwrite or downgrade one another. Use `published` for
 the team rollout and retain the package policy for deliberate iterations.
 
+For headless MDM packaging, build with `bun run build:pkg --mdm`. This component
+package installs only `/opt/apiiro/bin/apiiro`: no installer UI, PATH changes,
+Homebrew cleanup, or bundled uninstaller. It uses the same CLI receipt and binary
+path as the interactive package, so the two are alternative delivery methods, not
+parallel installations. Signing and notarization requirements still apply; an
+explicit `--internal` build is for approved internal iterations only.
+
+## Recurring Drift Repair
+
+Keep binary delivery and hook activation as separate rollout stages. For package
+delivery, use a version-scoped install policy; do not attach an Install package to
+an Ongoing policy that runs at every check-in.
+
+After the canary passes, create a repair policy using the same configuration
+script, exact version, feature profile, tenant restriction, and agent selection.
+Use Recurring Check-in with Ongoing frequency, but scope it to a Smart Group of
+computers with missing or drifted selected hooks, intersected with the approved
+rollout cohort. Preserve explicit opt-out exclusions on both policies. Refresh
+inventory on the normal fleet schedule so a later drift can enter the repair group.
+
+For published delivery, the script reuses the binary only after checking the
+approved release checksum. For package delivery, select `pkg` without attaching
+a package to the repair policy: repair must use the already-delivered approved
+binary. Route missing or old package binaries back to the binary delivery policy.
+Run the repair policy twice on a canary before enabling recurring execution.
+
+Do not use `healthy=false` alone as the repair criterion: missing authentication
+needs user onboarding, not repeated installation. Use the selected agent's hook
+scope/status fields and inspect conflicts before attempting repair. Avoid changing
+hook command paths on every version bump; retain `/opt/apiiro/bin/apiiro`.
+
+## Deployment Evidence
+
+Keep three distinct checks in rollout reporting:
+
+| Check | Evidence | What it does not prove |
+|-------|----------|------------------------|
+| Installation | Verified binary, successful configuration log, expected hook scope | User authentication or hook execution |
+| Local readiness | Fresh `doctor --ea`, binary hash/version, selected hook status and authentication | Backend delivery or scan completion |
+| Runtime | A real agent event correlated with the intended tenant's backend result | Other users or capabilities not exercised |
+
+Jamf Completed means the configuration script succeeded. Inventory submission can
+fail independently; its warning must leave the record pending verification until
+a later successful recon. Check the Extension Attribute's `collected_at` rather
+than treating an old healthy snapshot as current. Never put credentials, prompts,
+or scan payloads in Extension Attributes or policy parameters. Do not introduce a
+shared Protect token or whole-disk permissions for this hook deployment.
+
 ## Authentication And Hooks
 
 Claude hooks are configured in the console user's `~/.claude/settings.json`.
@@ -73,7 +122,16 @@ custom profiles require a separate explicitly configured policy.
 
 Each user authenticates with their own Apiiro account. The Claude SessionStart hook
 opens login when credentials are missing; this is not silent service-account login.
-If browser login cannot complete, follow the CLI's device-login instructions.
+Startup sign-in completes before the first prompt proceeds. Existing sessions
+can also initiate sign-in on a prompt, and concurrent sessions share one login.
+Login is bounded to four minutes; unsuccessful sign-in still blocks the prompt.
+When parameter 9 is set, the policy passes the restriction to user-scoped Claude
+hook installation and persists it only in Jamf-owned environment settings, so new
+authorization requests from that user are limited to the selected environments.
+Existing credentials are not changed or retroactively constrained by this filter.
+Without an environment restriction, device login can recover from unavailable
+browser callbacks. With parameter 9 set, use browser login: device login does not
+enforce this restriction and is unavailable.
 Restart existing Claude sessions after setup. A successful installation does not
 prove authentication or actual prompt enrichment.
 

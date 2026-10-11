@@ -6,8 +6,7 @@
           {
             "type": "command",
             "command": "apiiro hooks claude session-start",
-            "async": true,
-            "timeout": 300
+            "timeout": 420
           }
         ]
       }
@@ -18,7 +17,7 @@
           {
             "type": "command",
             "command": "apiiro hooks claude secure-prompt",
-            "timeout": 30
+            "timeout": 420
           }
         ]
       }

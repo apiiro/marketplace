@@ -1,12 +1,24 @@
 ---
 name: guardian-api
-description: |
-  Apiiro CLI passthrough to any Apiiro REST API endpoint, with authentication handled by the CLI. Use this skill when the user needs Apiiro data or actions that no dedicated command covers: org-wide or cross-repository queries, filtering by date or fields the `risks` and `inventory` commands do not expose, applications, diff scans by id, or any endpoint from https://docs.apiiro.com/api. Trigger on "call the Apiiro API", "hit the REST endpoint", "query Apiiro for X across all repos", or when another guardian skill's command cannot express the filter the user asked for. For repo-scoped risks, inventory, scans, or Guardian questions, prefer the dedicated skills.
+description: "Use when the user needs Apiiro data no dedicated command covers: org-wide or cross-repo Apiiro REST queries, filters the risks/inventory commands can't express, applications, diff scans by id. Repo-scoped risks: guardian-risks."
 ---
 
 # Apiiro API
 
 Send an authenticated request to any Apiiro REST API endpoint. The CLI adds the base URL and credentials; everything else passes through like `curl`. Endpoint reference: https://docs.apiiro.com/api
+
+## Discovering endpoints
+
+Start with `apiiro api list` before guessing a path. It reads the OpenAPI document the connected server publishes at `/rest-api/v1/openapi.json`, so it reflects that server's version, and shows each endpoint's method, path, summary, and the access-token permission it requires (`any token` when none).
+
+```bash
+apiiro api list                          # every published endpoint
+apiiro api list risks                    # filter on path, summary, operation id, or tag
+apiiro api list applications -o json     # machine-readable: data.endpoints[] with method, path, operationId, summary, tags, permission, queryParameters
+apiiro api /rest-api/v1/openapi.json     # the full document, for parameters and schemas
+```
+
+If the server answers 404, it predates the discovery endpoint; fall back to https://docs.apiiro.com/api.
 
 ## Usage
 
@@ -31,7 +43,7 @@ Output: the response body goes to stdout, pretty-printed on a terminal and raw w
 - Endpoints with no CLI command: applications, projects, servers, diff-scan lookups by id.
 - Mutations (POST/PATCH/DELETE) — show the user the exact method, path, and body and get their confirmation before sending any non-GET request. Read paths (GET) need no confirmation.
 
-Quote paths containing `[`, `]`, `?`, or `&` so the shell does not expand them. Do not guess endpoint paths or filter names; check https://docs.apiiro.com/api and say when a path is unverified.
+Quote paths containing `[`, `]`, `?`, or `&` so the shell does not expand them. Do not guess endpoint paths or filter names; run `apiiro api list <term>` (or fetch `/rest-api/v1/openapi.json` for parameters), fall back to https://docs.apiiro.com/api, and say when a path is unverified.
 
 ## Global Options
 

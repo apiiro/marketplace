@@ -1,7 +1,6 @@
 ---
 name: guardian-threat-model
-description: |
-  Apiiro CLI command for STRIDE-based threat modeling: analyze feature specs, requirements, or architectural changes for security threats. Use this skill whenever the user wants a threat model, threat analysis, STRIDE analysis, or security review of a design or feature spec before implementation. Also trigger when they ask "what are the threats in this design", "threat model this feature", "what could go wrong with this approach", "is this architecture secure", or want to understand the security implications of a proposed change. This is different from guardian (which answers freeform security questions about existing code) — use threat-model when the user has a design, spec, or feature description they want analyzed for threats.
+description: "Use when the user wants an Apiiro STRIDE threat model of a design, spec, or proposed change before implementation (\"threat model this feature\", \"what could go wrong with this design\"). Existing code: guardian-query."
 ---
 
 # Apiiro Threat Model

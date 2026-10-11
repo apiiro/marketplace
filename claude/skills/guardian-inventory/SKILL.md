@@ -1,7 +1,6 @@
 ---
 name: guardian-inventory
-description: |
-  Apiiro CLI command for listing a repository's inventory: the APIs it exposes, its dependencies, sensitive data handling, secrets, and technologies Apiiro has mapped. Use this skill whenever the user asks what a repo contains rather than what is wrong with it. Even without mentioning "apiiro", trigger on questions like "what APIs does this repo expose", "list the dependencies Apiiro knows about", "where does this service handle PII or sensitive data", "what secrets does Apiiro know about here", or "what technologies are in this codebase". For risks and findings, use guardian-risks; for a new local scan, use guardian-scan.
+description: "Use when the user asks what a repo contains rather than what is wrong: the APIs, dependencies, PII or sensitive data, secrets, and technologies Apiiro has mapped. Risks: guardian-risks; new local scan: guardian-scan."
 ---
 
 # Apiiro Inventory

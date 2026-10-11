@@ -1,7 +1,6 @@
 ---
 name: guardian-scan
-description: |
-  Apiiro CLI commands for security scanning: fast local scans for secrets and OSS vulnerabilities (plus pre-commit hooks), and diff scans that compare two git references for security risks — the primary CI/CD integration point. Use this skill whenever the user mentions scanning code, secrets detection, OSS vulnerabilities, pre-commit hooks, comparing branches or commits for security issues, CI/CD security gates, or blocking PRs on risk. Even if the user doesn't say "apiiro", trigger when they say things like "scan for secrets", "check my code before I push", "are there any leaked credentials", "check dependencies for vulnerabilities", "scan this PR", "compare main to my branch for security", "block merges on critical risks", or want to set up local or CI security scanning.
+description: "Use to scan code with the Apiiro CLI for secrets, leaked credentials, or vulnerable OSS dependencies, set up pre-commit hooks, or diff-scan branches and PRs for CI gates (\"check my code before I push\", \"scan this PR\")."
 ---
 
 # Apiiro Scan
@@ -26,16 +25,17 @@ Options: `--staged`, `--full` (scan entire file, not just git-changed lines), `-
 
 Exit codes: 0 = clean, 1 = findings at or above the `--fail-on` threshold (default: any finding) or a block by the organization's prevention workflows. When the scan response carries a server verdict (the organization defines prevention workflows), that verdict decides instead of the default threshold: `Block` fails, `Warn`/`Success` do not. An explicitly passed `--fail-on <severity>` stays a floor under a `Success` verdict; `--fail-on none` always keeps exit 0.
 
-### Pre-commit Hook
+### Git Hooks
 
 ```bash
-apiiro hooks pre-commit install                   # Install (scans all types)
+apiiro hooks pre-commit install                   # Install pre-commit (scans all types), post-commit and post-rewrite
 apiiro hooks pre-commit install --scan-type secrets --force
+apiiro hooks pre-commit install --global          # Opt in to the global core.hooksPath directory instead
 apiiro hooks pre-commit status
 apiiro hooks pre-commit uninstall
 ```
 
-Skip temporarily with `git commit --no-verify`.
+The pre-commit hook scans staged files; skip it temporarily with `git commit --no-verify`. The post-commit and post-rewrite hooks link each new, amended, or rebased commit to the coding session that produced it and never block a commit. An existing hook is kept as `<hook>.pre-apiiro` and runs first; `--force` overwrites it instead.
 
 ## Diff Scan
 

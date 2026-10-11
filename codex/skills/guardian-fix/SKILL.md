@@ -1,7 +1,6 @@
 ---
 name: guardian-fix
-description: |
-  Apiiro CLI commands for remediating and fixing security risks: get remediation prompts and use Guardian AI to fix findings. Use this skill whenever the user wants to fix, remediate, patch, or resolve a security risk or vulnerability in their repository. Also trigger when they ask "how do I fix this risk", "remediate this finding", "resolve this vulnerability", or want actionable guidance on resolving a security issue. For listing or inspecting risks, use the guardian-risks skill instead.
+description: "Use when the user wants to fix, remediate, or resolve a security risk or vulnerability (\"how do I fix this risk\", \"remediate this finding\"): Apiiro remediation prompts and Guardian AI fixes. To list risks: guardian-risks."
 ---
 
 # Apiiro Fix

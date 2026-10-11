@@ -245,9 +245,13 @@ apiiro inventory --repo my-repo --max-pages -1   # Fetch every page (default cap
 
 ### Raw API Access
 
-Send an authenticated request to any Apiiro REST API endpoint — a curl-style passthrough where the CLI supplies the base URL, authentication, and headers. Endpoint reference: https://docs.apiiro.com/api
+Send an authenticated request to any Apiiro REST API endpoint — a curl-style passthrough where the CLI supplies the base URL, authentication, and headers. `apiiro api list` shows which endpoints exist, read from the OpenAPI document your server publishes at `/rest-api/v1/openapi.json`, so it always matches the server you are connected to. Endpoint reference: https://docs.apiiro.com/api
 
 ```bash
+apiiro api list                                                 # every published endpoint: method, path, summary, required permission
+apiiro api list risks                                           # filter by path, summary, operation id, or tag
+apiiro api list applications -o json                            # machine-readable
+apiiro api /rest-api/v1/openapi.json                            # the full OpenAPI document (parameters, schemas)
 apiiro api "/rest-api/v1/risks?filters[RiskLevel]=Critical"    # GET with filters
 apiiro api /rest-api/v1/applications -d '{"name": "my-app"}'   # POST (inferred from --data)
 apiiro api /rest-api/v1/applications/<key> -X PATCH -d @patch.json
@@ -289,12 +293,20 @@ apiiro guardian repository clear     # Clear cached repo info
 
 ### Hooks
 
-Git pre-commit scanning plus lifecycle hooks for Claude Code, Cursor, GitHub Copilot CLI, and OpenAI Codex. The agent hooks authenticate at session start and add security context where each host protocol permits it.
+Git hooks (pre-commit scanning, plus post-commit and post-rewrite session binding) and lifecycle hooks for Claude Code, Cursor, GitHub Copilot CLI, and OpenAI Codex. The agent hooks authenticate at session start and add security context where each host protocol permits it.
+
+Claude Code waits for startup sign-in before submitting the first prompt. If
+authentication is missing in an existing session, Secure Prompt starts sign-in
+and continues the same prompt after authentication succeeds. Concurrent sessions
+share one browser sign-in, with a four-minute login budget. If sign-in fails or
+times out, the prompt remains blocked. Explicitly disabling all hook features
+also disables startup sign-in.
 
 ```bash
-apiiro hooks pre-commit install     # Install pre-commit hook
-apiiro hooks pre-commit status      # Check hook status
-apiiro hooks pre-commit uninstall   # Remove hook
+apiiro hooks pre-commit install     # Install the pre-commit, post-commit and post-rewrite hooks
+apiiro hooks pre-commit status      # Check each hook
+apiiro hooks pre-commit uninstall   # Remove the hooks, restoring any they ran in front of
+apiiro hooks pre-commit install --global   # Install into the global core.hooksPath instead (opt-in)
 
 apiiro hooks claude install            # Enable the apiiro-prevention plugin (CLI equivalent of /plugin install)
 apiiro hooks claude status             # Check status
@@ -317,6 +329,8 @@ apiiro hooks update                 # Refresh locally-installed hook artifacts o
 apiiro hooks update --dry-run       # Preview without making changes
 ```
 
+`apiiro hooks pre-commit install` writes three hooks into the repository's `.git/hooks`: `pre-commit` scans staged files, and `post-commit` / `post-rewrite` link each new, amended, or rebased commit to the coding session that produced it, so Apiiro can attribute code to the session that wrote it whichever front end made the commit — a terminal, an IDE, or a coding agent. A hook that already exists (Husky, Lefthook, your own script) is kept: it is renamed to `<hook>.pre-apiiro`, runs first with the same arguments and input, and is restored by `uninstall`; pass `--force` to overwrite it instead. The post-commit hooks never block or fail a commit — they give up silently after three seconds, without credentials, outside a monitored repository, or when the feature is not enabled for your organization. `--global` installs into the directory your global `core.hooksPath` points to (creating `~/.apiiro/git-hooks` and setting `core.hooksPath` when none is configured) and is never used unless you ask for it.
+
 With server support for session context, Claude Code prevention hooks also send bounded repo-relative file paths and sanitized ticket/link references so follow-up prompts retain the task context. A link reference keeps only its scheme and host, so paths, query strings, and credentials never leave your machine, and these hooks send no edit contents, diffs, or tool response bodies and never block an edit. Secret-pattern redaction and length bounds apply to the prompt text that prompt enrichment sends; session records expire after 24 hours without use. `apiiro hooks config disable disableEnrichSession` turns these context hooks off together with the session-start context.
 
 These context hooks run in the background (Claude Code does not wait on them before continuing), each capped at a few seconds so a slow network never leaves a process behind. In a headless `claude -p` run, Claude Code can end the session before a background hook finishes, so a fragment from the run's final tool call may not be recorded.
@@ -325,7 +339,7 @@ Restart Claude Code after installing or uninstalling its plugin for the change t
 
 Codex runs a hook only after you trust it once: run `codex` in a terminal, type `/hooks`, and trust each Apiiro entry (one per hook). Until then Codex skips the hook silently — the desktop app does not prompt — and editing a hook requires trusting that entry again. `apiiro hooks update` (also run by `apiiro update`) repairs existing Cursor, Codex, and Copilot CLI user installs whose entries are missing or outdated (a machine-wide managed install is left to your administrator); review the changed Codex entries in `/hooks` afterwards.
 
-When your organization defines prevention workflows, the commit scan carries a server verdict and each host renders it through its own hook protocol. A `Block` verdict stops the commit on every host, with the matched workflows and the findings behind them. A `Warn` verdict lets the commit through, and whether you see the warning depends on the host:
+When your organization defines prevention workflows, the commit scan carries a server verdict and each host renders it through its own hook protocol. A `Block` verdict stops the commit on every host, with the matched workflows and the findings behind them. Each finding carries the fix data the scan returns for it — the upgrade version and advisory IDs for a vulnerable dependency, the remediation for a malicious package, the secret type — so the coding agent can fix it and commit again for a fresh scan. `fast-scan` prints the same lines under each new finding. A `Warn` verdict lets the commit through, and whether you see the warning depends on the host:
 
 | Host | `Warn` verdict |
 |------|----------------|
@@ -393,7 +407,9 @@ The CLI may send anonymous usage analytics (command name, success/failure, durat
 
 The first time analytics would be recorded in an interactive terminal, the CLI prints a one-time notice on stderr. Telemetry is disabled automatically in CI environments, and you can opt out at any time with `APIIRO_TELEMETRY=0` or the standard `DO_NOT_TRACK=1`.
 
-Separately from analytics, a bypassed pre-commit scan is also reported to **your own Apiiro tenant**, so your administrators can see in the Guardian actions log that a scan was skipped. That report carries your repository's git URL, branch, and the coding-agent surface — the same repository context the scans themselves send — and never any file content or findings. It is a security record rather than product analytics, so neither the analytics opt-out above nor `apiiro hooks config disable disablePreCommitScan` suppresses it; it is only sent when you are signed in to Apiiro, and a failure to send it never blocks your commit.
+Separately from analytics, the post-commit and post-rewrite hooks report each commit they see to **your own Apiiro tenant**: the repository key, commit sha, parent shas, branch, commit time, the coding-session id when one is known (and where it came from), the coding agent that was running, and the CLI version — never file content, diffs, or messages. It is how Apiiro attributes a commit to the session that produced it; it is only sent when you are signed in, and a failure to send it never affects the commit.
+
+Likewise, a bypassed pre-commit scan is also reported to **your own Apiiro tenant**, so your administrators can see in the Guardian actions log that a scan was skipped. That report carries your repository's git URL, branch, and the coding-agent surface — the same repository context the scans themselves send — and never any file content or findings. It is a security record rather than product analytics, so neither the analytics opt-out above nor `apiiro hooks config disable disablePreCommitScan` suppresses it; it is only sent when you are signed in to Apiiro, and a failure to send it never blocks your commit.
 
 ## Troubleshooting
 

@@ -1,7 +1,6 @@
 ---
 name: guardian-query
-description: |
-  Apiiro CLI commands for querying the Guardian AI agent: ask security questions, get analysis and insights about a repository, and manage repository detection. Use this skill whenever the user wants AI-powered security analysis, security posture review, or wants to ask questions about their codebase's security. Also trigger when they need deep analysis of authentication flows, attack surfaces, or want an AI to explain security concepts. Even without mentioning "apiiro" or "guardian", trigger when the user asks things like "is this code secure?", "what's the attack surface here?", or "explain this vulnerability". Also use this skill for org-wide or cross-repo questions ("top risks across the org", "our overall security posture") with `--global`; for risks in a single repository, use guardian-risks instead. For dedicated STRIDE threat modeling of a design or feature spec, use the guardian-threat-model skill instead. For fixing a known risk, use guardian-fix.
+description: "Use for freeform security questions about code (\"is this code secure?\", attack surface, auth flows) or org-wide posture (\"top risks across the org\", --global), answered by the Apiiro Guardian AI agent. One repo's risks: guardian-risks."
 ---
 
 # Apiiro Guardian
