@@ -184,66 +184,147 @@ write_claude_oauth_env() {
     settings="$1"
     allowed="$2"
     state="$HOME/.apiiro/jamf-oauth-allowed-envs"
+    patch_oauth_env() {
+      /usr/bin/osascript -l JavaScript - "$@" <<\JXA
+ObjC.import("Foundation");
+
+function writeUpdated(root, path) {
+  const data = $.NSJSONSerialization.dataWithJSONObjectOptionsError(root, 0, Ref());
+  if (!data.isKindOfClass($.NSData)) return false;
+  return data.writeToFileAtomically($(path), false);
+}
+
+function run(argv) {
+  try {
+    const path = argv[0];
+    const allowed = argv[1];
+    const markerPresent = argv[2] === "true";
+    const owned = argv[3];
+    const envKey = $("env");
+    const oauthKey = $("APIIRO_OAUTH_ALLOWED_ENVS");
+    const data = $.NSData.dataWithContentsOfFile($(path));
+    if (!data.isKindOfClass($.NSData)) return "parse_error";
+    const root = $.NSJSONSerialization.JSONObjectWithDataOptionsError(
+      data,
+      $.NSJSONReadingMutableContainers,
+      Ref()
+    );
+    if (!root.isKindOfClass($.NSDictionary)) return "parse_error";
+
+    const envObject = root.objectForKey(envKey);
+    const envValue = ObjC.unwrap(envObject);
+    let environment = null;
+    if (envValue === undefined) {
+      environment = null;
+    } else if (envObject.isKindOfClass($.NSDictionary)) {
+      environment = envObject;
+    } else {
+      return "parse_error";
+    }
+
+    let current;
+    let present = false;
+    if (environment !== null) {
+      const currentObject = environment.objectForKey(oauthKey);
+      const currentValue = ObjC.unwrap(currentObject);
+      if (currentValue === undefined) {
+        present = false;
+      } else if (currentObject.isKindOfClass($.NSString)) {
+        current = currentValue;
+        present = true;
+      } else {
+        return "parse_error";
+      }
+    }
+    const hasValue = present && current.length > 0;
+
+    if (allowed.length === 0) {
+      if (markerPresent && present && current === owned) {
+        environment.removeObjectForKey(oauthKey);
+        return writeUpdated(root, path) ? "updated" : "parse_error";
+      }
+      return "unchanged";
+    }
+
+    if (markerPresent) {
+      if (hasValue && current !== owned) return "conflict";
+    } else if (hasValue) {
+      return current === allowed ? "unchanged" : "conflict";
+    }
+    if (present && current === allowed) return "unchanged";
+
+    if (environment === null) {
+      environment = $.NSMutableDictionary.alloc.init;
+      root.setObjectForKey(environment, envKey);
+    }
+    environment.setObjectForKey($(allowed), oauthKey);
+    return writeUpdated(root, path) ? "updated" : "parse_error";
+  } catch (error) {
+    return "parse_error";
+  }
+}
+JXA
+    }
     [[ ! -L "$HOME" && ! -L "$HOME/.claude" && ! -L "$settings" && ! -L "$HOME/.apiiro" && ! -L "$state" ]] || exit 21
     mkdir -p "$HOME/.claude" "$HOME/.apiiro"
-    if [[ -z "$allowed" ]]; then
-      [[ -f "$state" ]] || exit 0
+    [[ ! -e "$settings" || -f "$settings" ]] || exit 21
+    [[ ! -e "$state" || -f "$state" ]] || exit 21
+
+    marker_present=false
+    owned=""
+    if [[ -f "$state" ]]; then
+      [[ -r "$state" ]] || exit 26
       owned="$(cat "$state")"
-      [[ -f "$settings" ]] || { rm -f "$state"; exit 0; }
-      temp="$(mktemp "${settings}.jamf.XXXXXX")"
-      cp -p "$settings" "$temp"
-      /usr/bin/plutil -convert xml1 "$temp" >/dev/null 2>&1 || { rm -f "$temp"; exit 22; }
-      current="$(/usr/bin/plutil -extract env.APIIRO_OAUTH_ALLOWED_ENVS raw -o - "$temp" 2>/dev/null || true)"
-      if [[ "$current" == "$owned" ]]; then
-        /usr/bin/plutil -remove env.APIIRO_OAUTH_ALLOWED_ENVS "$temp" >/dev/null 2>&1 || true
-        converted="${temp}.json"
-        /usr/bin/plutil -convert json -o "$converted" "$temp" >/dev/null 2>&1 || { rm -f "$temp" "$converted"; exit 23; }
-        mode="$(stat -f %Lp "$settings" 2>/dev/null || printf 600)"
-        mv "$converted" "$settings"
-        chmod "$mode" "$settings"
-      fi
-      rm -f "$temp"
+      marker_present=true
+    fi
+
+    if [[ -z "$allowed" && "$marker_present" == false ]]; then
+      exit 0
+    fi
+    if [[ ! -f "$settings" && -z "$allowed" ]]; then
       rm -f "$state"
       exit 0
     fi
-    existing_state=0
-    [[ -f "$state" ]] && existing_state=1
-    if [[ -f "$settings" && "$existing_state" -eq 1 ]]; then
-      owned="$(cat "$state")"
-      current="$(/usr/bin/plutil -extract env.APIIRO_OAUTH_ALLOWED_ENVS raw -o - "$settings" 2>/dev/null || true)"
-      [[ -z "$current" || "$current" == "$owned" ]] || exit 25
-    fi
-    if [[ -f "$settings" && "$existing_state" -eq 0 ]]; then
-      current="$(/usr/bin/plutil -extract env.APIIRO_OAUTH_ALLOWED_ENVS raw -o - "$settings" 2>/dev/null || true)"
-      if [[ -n "$current" ]]; then
-        [[ "$current" == "$allowed" ]] && exit 0
-        exit 25
-      fi
-    fi
+
     temp="$(mktemp "${settings}.jamf.XXXXXX")"
-    if [[ -f "$settings" ]]; then cp -p "$settings" "$temp"; else printf "%s\n" '{}' > "$temp"; fi
-    /usr/bin/plutil -convert xml1 "$temp" >/dev/null 2>&1 || { rm -f "$temp"; exit 22; }
-    /usr/bin/plutil -insert env -dictionary "$temp" >/dev/null 2>&1 || true
-    if ! /usr/bin/plutil -replace env.APIIRO_OAUTH_ALLOWED_ENVS -string "$allowed" "$temp" >/dev/null 2>&1 &&
-       ! /usr/bin/plutil -insert env.APIIRO_OAUTH_ALLOWED_ENVS -string "$allowed" "$temp" >/dev/null 2>&1; then
+    mode=600
+    if [[ -f "$settings" ]]; then
+      [[ -r "$settings" ]] || { rm -f "$temp"; exit 26; }
+      mode="$(stat -f %Lp "$settings" 2>/dev/null)" || { rm -f "$temp"; exit 26; }
+      cp -p "$settings" "$temp" || { rm -f "$temp"; exit 26; }
+    else
+      printf "%s\n" "{}" > "$temp"
+    fi
+
+    classification="$(patch_oauth_env "$temp" "$allowed" "$marker_present" "$owned" 2>/dev/null)" || {
       rm -f "$temp"
       exit 23
+    }
+    case "$classification" in
+      updated)
+        chmod "$mode" "$temp" || { rm -f "$temp"; exit 23; }
+        mv "$temp" "$settings" || { rm -f "$temp"; exit 23; }
+        ;;
+      unchanged) rm -f "$temp" ;;
+      conflict) rm -f "$temp"; exit 25 ;;
+      parse_error) rm -f "$temp"; exit 22 ;;
+      *) rm -f "$temp"; exit 23 ;;
+    esac
+
+    if [[ -z "$allowed" ]]; then
+      rm -f "$state"
+    elif [[ "$marker_present" == true || "$classification" == updated ]]; then
+      printf "%s\n" "$allowed" > "$state"
+      chmod 600 "$state"
     fi
-    converted="${temp}.json"
-    /usr/bin/plutil -convert json -o "$converted" "$temp" >/dev/null 2>&1 || { rm -f "$temp" "$converted"; exit 24; }
-    mode="$(stat -f %Lp "$settings" 2>/dev/null || printf 600)"
-    mv "$converted" "$settings"
-    chmod "$mode" "$settings"
-    rm -f "$temp"
-    printf "%s\n" "$allowed" > "$state"
-    chmod 600 "$state"
   ' apiiro-oauth-env-configure "$settings" "$allowed" || {
     local status=$?
     case "$status" in
       21) log "ERROR: unsafe symlink in the Claude OAuth configuration path." ;;
-      22) log "ERROR: Claude settings could not be parsed as JSON (JSON null values are not supported)." ;;
+      22) log "ERROR: Claude settings could not be safely read as a JSON object with string OAuth configuration." ;;
       23|24) log "ERROR: Claude settings could not be updated or serialized." ;;
       25) log "ERROR: Claude OAuth environment setting differs from the Jamf-owned value; preserving the existing setting." ;;
+      26) log "ERROR: Claude OAuth environment setting or ownership marker could not be read." ;;
       *) log "ERROR: could not persist the Claude OAuth environment setting (exit $status); check user ownership and write permissions." ;;
     esac
     return 1
