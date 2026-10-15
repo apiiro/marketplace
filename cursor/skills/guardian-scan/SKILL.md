@@ -47,9 +47,9 @@ apiiro diff-scan -s <scan-id>                     # Check existing scan status
 apiiro diff-scan -i                               # Interactive mode
 ```
 
-Exit codes: 0 = success/warn, 1 = blocked/failed, 2 = scan still pending.
+Exit codes: 0 = success/warn, 1 = blocked/failed, 2 = not signed in, or scan still pending (`-s`). `-s <scan-id>` exits 1 for a blocked scan just like `--wait`, so it can gate CI on its own.
 
-`--wait` polls until results land. `--timeout <seconds>` bounds the wait (default: 300). When the timeout elapses, exit code 2 is returned along with the scan ID so the user can re-check later with `-s <scan-id>`.
+`--wait` polls until results land. `--timeout <seconds>` bounds the wait (default: 300). When the timeout elapses, the command exits 1 and prints the scan ID so the user can re-check later with `-s <scan-id>`.
 
 ## Global Options
 

@@ -211,6 +211,8 @@ apiiro diff-scan -s <scan-id>
 apiiro diff-scan -i
 ```
 
+Exit codes: 0 = `Success` or `Warn`, 1 = `Block` or an error (including a `--wait` timeout), 2 = not signed in, or the scan checked with `-s` is still running. A blocked scan exits 1 whether you wait for it with `--wait` or check it later with `-s <scan-id>`.
+
 ### Risks
 
 List and inspect risks for a repository. Agent skills: `guardian-risks` (list/inspect), `guardian-fix` (remediate).
