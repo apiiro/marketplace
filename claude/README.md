@@ -20,7 +20,9 @@ irm https://apiiro.com/install.ps1 | iex
 
 Then run `apiiro login` and `apiiro init` to wire skills + prevention hooks into your coding agents.
 
-Environment overrides: `APIIRO_INSTALL_DIR`, `APIIRO_VERSION` (pin a version), `APIIRO_NO_MODIFY_PATH`.
+Environment overrides: `APIIRO_INSTALL_DIR`, `APIIRO_VERSION` (the version to install), `APIIRO_NO_MODIFY_PATH`.
+
+Every install method updates itself to the version your organization selects in Apiiro; see [Update](#update).
 
 ### npm (macOS / Linux / Windows)
 
@@ -84,7 +86,7 @@ sudo yum install -y https://github.com/apiiro/marketplace/releases/latest/downlo
 
 ### Organization-wide deployment (macOS/MDM)
 
-Jamf deployments use the [versioned policy script](jamf/README.md), with no package to build or upload. The policy downloads a pinned public CLI release, verifies its checksum, and installs one root-owned binary at `/opt/apiiro/bin/apiiro` before configuring the logged-in user's skills and hooks.
+Jamf deployments use the [versioned policy script](jamf/README.md), with no package to build or upload. The policy downloads a pinned public CLI release, verifies its checksum, and installs one root-owned binary at `/opt/apiiro/bin/apiiro` before configuring the logged-in user's skills and hooks. Jamf only installs the CLI: after that, the CLI follows the version your organization selects in Apiiro. To let Jamf manage the version instead, set the Apiiro CLI version setting to **Off**.
 
 The default profile enables Secure Prompt for Claude Code and leaves scanning disabled. Set Parameter 6 to the approved release version; use Parameter 7=`all` when ready to enable the other public prevention capabilities. Parameter 8 defaults to `published`; use `pkg` to configure an approved package build without downloading or replacing its binary. Keep opted-out computers excluded from the policy scope. Read the [Jamf guide](jamf/README.md) for triggers, authentication, and verification.
 
@@ -175,7 +177,7 @@ Alternatively, set the `APIIRO_API_KEY` environment variable.
 
 ### Fast Scan
 
-Quick local scanning for secrets and OSS vulnerabilities. Auto-detects changed files in the current git repo. Agent skill: `guardian-scan`.
+Quick local scanning for secrets and OSS vulnerabilities. Requires a repository monitored by Apiiro with an `origin` remote. The CLI checks repository eligibility before uploading file contents; unmonitored repositories are skipped, not reported as clean. Auto-detects changed files in the current git repo. Agent skill: `guardian-scan`.
 
 ```bash
 apiiro fast-scan secrets            # Scan for secrets
@@ -339,7 +341,7 @@ These context hooks run in the background (Claude Code does not wait on them bef
 
 Restart Claude Code after installing or uninstalling its plugin for the change to take effect. Copilot CLI does not support per-prompt output from config-file hooks, and Cursor's prompt hook cannot inject context at all, so on both hosts Apiiro adds its context at session start and scans at commit time. The `apiiro hooks <agent> install` commands are the non-interactive Jamf fallback; the Codex and Copilot marketplaces package the same lifecycle definitions for interactive installation.
 
-Codex runs a hook only after you trust it once: run `codex` in a terminal, type `/hooks`, and trust each Apiiro entry (one per hook). Until then Codex skips the hook silently — the desktop app does not prompt — and editing a hook requires trusting that entry again. `apiiro hooks update` (also run by `apiiro update`) repairs existing Cursor, Codex, and Copilot CLI user installs whose entries are missing or outdated (a machine-wide managed install is left to your administrator); review the changed Codex entries in `/hooks` afterwards.
+Codex runs a hook only after you trust it once: run `codex` in a terminal, type `/hooks`, and trust each Apiiro entry (one per hook). Until then Codex skips the hook silently — the desktop app does not prompt — and editing a hook requires trusting that entry again. `apiiro hooks update` (also run by `apiiro update`) repairs existing Cursor, Codex, Copilot CLI, and direct Claude Code user installs whose entries are missing or outdated, including hooks that still point at a removed Homebrew version (a machine-wide managed install is left to your administrator); review the changed Codex entries in `/hooks` afterwards.
 
 When your organization defines prevention workflows, the commit scan carries a server verdict and each host renders it through its own hook protocol. A `Block` verdict stops the commit on every host, with the matched workflows and the findings behind them. Each finding carries the fix data the scan returns for it — the upgrade version and advisory IDs for a vulnerable dependency, the remediation for a malicious package, the secret type — so the coding agent can fix it and commit again for a fresh scan. `fast-scan` prints the same lines under each new finding. A `Warn` verdict lets the commit through, and whether you see the warning depends on the host:
 
@@ -368,14 +370,18 @@ apiiro doctor --json    # Machine-readable
 
 ### Update
 
-Check for a newer CLI release, replace the running binary in place, and refresh installed hook files to the new version. Works without authentication.
+The CLI keeps itself on the version your organization selects in Apiiro: the latest stable release (the default), a locked version, or Off when your device management controls the version. Every install method works the same way, including Homebrew, npm, RPM and Jamf: the installed file never changes. The CLI downloads the exact release from the [public releases](https://github.com/apiiro/marketplace/releases), checks its SHA-256 checksum and runs it once to verify it, keeps it in your account's own folder (`~/.apiiro/versions`, or `%LOCALAPPDATA%\Apiiro\versions` on Windows), and from then on runs that version.
+
+When a different version is required, a command waits while the CLI downloads it (up to 10 minutes in a terminal, 2 minutes in an agent session-start hook, 90 seconds for other runs), then runs on the new version. Short hooks, such as commit scans, never wait: they switch at once when the new version is ready. If an update cannot finish, the CLI keeps working on its current version and tries again later. CI runs keep the version they install unless you set `APIIRO_AUTO_UPDATE=on`. When your organization has no version setting, the CLI only shows a notice once a day when a newer stable release exists.
 
 ```bash
-apiiro update           # Check, install if a newer version is available, then refresh hooks
-apiiro update --check   # Only check; don't install
+apiiro update            # Update now to your organization's version (or the latest stable release)
+apiiro update --check    # Only check; don't install
+apiiro update --disable  # Turn off automatic updates for your account on this machine
+apiiro update --enable   # Turn them back on
 ```
 
-The download is checksum-verified and test-run before it replaces anything. Only self-updates the compiled binary (not npm or dev-mode invocations) and skips Homebrew-managed installs — run `brew upgrade apiiro` or `npm i -g apiiro-cli@latest` for those.
+An update also refreshes the installed hook files once. Turning automatic updates off on one machine is also possible with `APIIRO_AUTO_UPDATE=off`. On Windows, an elevated terminal ("Run as administrator") never updates the CLI: it runs the installed version, and `apiiro update` there changes nothing.
 
 ## Global Options
 
@@ -395,6 +401,7 @@ Most commands support:
 | `APIIRO_CA_EXPORT_MAX_BUFFER_BYTES` | Max bytes read when exporting OS CA certificates. | `104857600` |
 | `APIIRO_FORCE_SECURITY_EXPORT` | macOS: set to `1` to force keychain export via `security` for OS roots. | — |
 | `APIIRO_TELEMETRY` | Set to `0` to disable anonymous usage analytics. | enabled |
+| `APIIRO_AUTO_UPDATE` | `off` turns off automatic updates; `on` turns them on where they are off by default (CI). | on, off in CI |
 | `APIIRO_NO_UPDATE_NOTIFIER` | Set to any value to silence the new-version notice. | — |
 | `DO_NOT_TRACK` | Standard opt-out convention; also disables anonymous usage analytics. | — |
 | `APIIRO_CLIENT` | Surface invoking the CLI: `cli` or `ide`. Used in analytics only. | `cli` |
@@ -410,6 +417,8 @@ The CLI may send anonymous usage analytics (command name, success/failure, durat
 The first time analytics would be recorded in an interactive terminal, the CLI prints a one-time notice on stderr. Telemetry is disabled automatically in CI environments, and you can opt out at any time with `APIIRO_TELEMETRY=0` or the standard `DO_NOT_TRACK=1`.
 
 Separately from analytics, the post-commit and post-rewrite hooks report each commit they see to **your own Apiiro tenant**: the repository key, commit sha, parent shas, branch, commit time, the coding-session id when one is known (and where it came from), the coding agent that was running, and the CLI version — never file content, diffs, or messages. It is how Apiiro attributes a commit to the session that produced it; it is only sent when you are signed in, and a failure to send it never affects the commit.
+
+To keep itself on your organization's version, the CLI asks **your own Apiiro tenant** for the version setting about once an hour while you use it. That request carries the operating system, processor architecture, install method, update state, last update error, the latest stable version the CLI found, and a random id for this account on this machine, so your administrators can see which versions are in use. It is only sent when you are signed in, and it never contains code or repository data.
 
 Likewise, a bypassed pre-commit scan is also reported to **your own Apiiro tenant**, so your administrators can see in the Guardian actions log that a scan was skipped. That report carries your repository's git URL, branch, and the coding-agent surface — the same repository context the scans themselves send — and never any file content or findings. It is a security record rather than product analytics, so neither the analytics opt-out above nor `apiiro hooks config disable disablePreCommitScan` suppresses it; it is only sent when you are signed in to Apiiro, and a failure to send it never blocks your commit.
 

@@ -38,9 +38,9 @@ run_as_console_user() {
   local uid="$1" user="$2"
   shift 2
   if [[ "${APIIRO_TEST_MODE:-}" == "1" ]]; then
-    HOME="$USER_HOME" USER="$user" LOGNAME="$user" APIIRO_OAUTH_ALLOWED_ENVS="$OAUTH_ALLOWED_ENVS" "$@"
+    HOME="$USER_HOME" USER="$user" LOGNAME="$user" APIIRO_OAUTH_ALLOWED_ENVS="$OAUTH_ALLOWED_ENVS" APIIRO_AUTO_UPDATE=off "$@"
   elif [[ "$(id -u)" -eq 0 ]]; then
-    local -a env_args=(USER="$user" LOGNAME="$user" HOME="$USER_HOME" PATH="/opt/apiiro/bin:/usr/local/bin:/usr/bin:/bin")
+    local -a env_args=(USER="$user" LOGNAME="$user" HOME="$USER_HOME" PATH="/opt/apiiro/bin:/usr/local/bin:/usr/bin:/bin" APIIRO_AUTO_UPDATE=off)
     [[ -n "$OAUTH_ALLOWED_ENVS" ]] && env_args+=(APIIRO_OAUTH_ALLOWED_ENVS="$OAUTH_ALLOWED_ENVS")
     if [[ -n "$TENANT_URL" ]]; then
       env_args+=(APIIRO_API_URL="$TENANT_URL")
@@ -544,7 +544,7 @@ verify_checksum() {
 
 verify_binary_version() {
   local file="$1" version="$2" actual
-  actual="$("$file" --version 2>/dev/null | tr -d '\r\n')"
+  actual="$(APIIRO_AUTO_UPDATE=off "$file" --version 2>/dev/null | tr -d '\r\n')"
   [[ "$actual" == "$version" ]] || {
     log "ERROR: downloaded CLI reports '${actual:-unknown}', expected '$version'."
     return 1
@@ -622,7 +622,7 @@ use_pkg_binary() {
   [[ ! -L "$CLI_BIN" ]] || { log "ERROR: refusing symlink at managed CLI path: $CLI_BIN"; return 1; }
   secure_path "$CLI_BIN" file || { log "ERROR: PKG mode requires an existing protected CLI at $CLI_BIN."; return 1; }
   [[ -x "$CLI_BIN" ]] || { log "ERROR: PKG mode requires an executable CLI at $CLI_BIN."; return 1; }
-  installed="$("$CLI_BIN" --version 2>/dev/null | tr -d '\r\n')"
+  installed="$(APIIRO_AUTO_UPDATE=off "$CLI_BIN" --version 2>/dev/null | tr -d '\r\n')"
   [[ "$installed" == "$version" ]] || {
     log "ERROR: installed PKG CLI reports '${installed:-unknown}', expected '$version'."
     return 1
@@ -632,7 +632,7 @@ use_pkg_binary() {
 }
 
 run_root_cli() {
-  /usr/bin/env -i HOME=/var/root PATH="/opt/apiiro/bin:/usr/local/bin:/usr/bin:/bin" "$CLI_BIN" "$@"
+  /usr/bin/env -i HOME=/var/root PATH="/opt/apiiro/bin:/usr/local/bin:/usr/bin:/bin" APIIRO_AUTO_UPDATE=off "$CLI_BIN" "$@"
 }
 
 remove_user_hooks() {

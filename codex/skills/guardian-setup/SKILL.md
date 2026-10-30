@@ -57,7 +57,8 @@ Download `apiiro-win.exe` from https://github.com/apiiro/marketplace/releases
 ## 4. Check for a newer version
 
 - Run: `apiiro update --check`
-- If a newer release exists, run `apiiro update` for the compiled binary. It skips Homebrew and npm installs: use `brew upgrade apiiro` or `npm i -g apiiro-cli@latest` for those
+- The CLI updates itself to the version the organization selects in Apiiro, for every install method (Homebrew and npm included). If a newer version is available, run `apiiro update` to install it now
+- If automatic updates are off on this machine (`APIIRO_AUTO_UPDATE=off` or `apiiro update --disable`), say so; `apiiro update --enable` turns them back on
 
 ## 5. Check available features
 

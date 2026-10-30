@@ -7,7 +7,7 @@ description: "Use to scan code with the Apiiro CLI for secrets, leaked credentia
 
 Security scanning via the Apiiro CLI. Two modes:
 
-- **Fast scan** — quick local scan for secrets and OSS vulnerabilities. Requires a git repo with an `origin` remote. Auto-detects changed files when none specified.
+- **Fast scan** — quick local scan for secrets and OSS vulnerabilities. Requires a repository monitored by Apiiro with an `origin` remote. Repository eligibility is checked before uploading file contents. Unmonitored repositories are skipped, not reported as clean. Auto-detects changed files when none specified.
 - **Diff scan** — compare two git references for security risks. Primary CI/CD integration point.
 
 ## Fast Scan

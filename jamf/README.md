@@ -5,6 +5,12 @@ Homebrew, npm, or custom binary is required. The policy installs the architectur
 `/opt/apiiro/bin/apiiro`, owned by root, and configures the logged-in user's skills
 and hooks without changing unrelated integrations.
 
+Jamf only installs the CLI. After that, the CLI keeps itself on the version your
+organization selects in Apiiro: it downloads that exact release into each user's own
+folder (`~/.apiiro/versions`) and runs it, while `/opt/apiiro/bin/apiiro` itself never
+changes. To let Jamf manage the version instead, set the Apiiro CLI version setting
+to **Off**; the CLI then runs the binary that Jamf installed.
+
 Use the scripts from the same approved release as the CLI. Older releases such as
 1.7.0 predate this deployment flow and must not be paired with these scripts.
 
@@ -26,7 +32,7 @@ Use the scripts from the same approved release as the CLI. Older releases such a
 |-----------|---------|---------|
 | 4 | Agent targets: `claude`, `cursor`, `copilot`, `codex`, or `all` | `claude` |
 | 5 | Optional HTTPS tenant API URL | CLI default |
-| 6 | Required exact approved CLI version, without `v` | None |
+| 6 | Required exact CLI version to install, without `v` | None |
 | 7 | Feature profile: `secure-prompt` or `all` | `secure-prompt` |
 | 8 | Binary source: `published` or `pkg` | `published` |
 | 9 | Optional comma-separated 24-32 character hexadecimal OAuth environment IDs; empty leaves authorization unrestricted | Empty |
@@ -144,19 +150,24 @@ or their private hook settings.
 
 - Inspect the per-computer Jamf log for successful binary verification, selected
   hook scope, and configuration completion.
-- Run `/opt/apiiro/bin/apiiro doctor --ea` as the user. Verify version,
-  authentication, `claude_hook_scope=user`, and the intended disabled capabilities.
-  The Extension Attribute also reports missing binaries and pending user setup.
+- Run `/opt/apiiro/bin/apiiro doctor --ea` as the user. Verify `installed_version`
+  (the version Jamf installed), `version` (the version that runs, which follows the
+  Apiiro setting), authentication, `claude_hook_scope=user`, and the intended disabled
+  capabilities. The Extension Attribute also reports missing binaries, pending user
+  setup, and the automatic-update state (`auto_update`, `auto_update_policy`,
+  `auto_update_target`, `auto_update_error`).
 - Start a fresh Claude session and verify a real coding prompt receives enrichment.
   Confirm the intended tenant and that no scans execute under `secure-prompt`.
 - Run the policy twice on a canary and verify it converges without replacing the
   verified binary or creating duplicate hooks. Test fresh login, not only cached auth.
 - Expand scope only after this evidence is present on a second managed Mac.
 
-For an upgrade or profile change, update the version/profile and deliberately
-schedule a new policy run. Changing a Once-per-user policy's parameters does not
-rerun already-completed installs. Keep prior version/profile values for rollback;
-the policy pins both upgrades and deliberate downgrades to verified release assets.
+Upgrades come from the Apiiro CLI version setting, not from Jamf. To roll out a
+version, lock it in Apiiro; to go back, lock the earlier version with downgrades
+allowed. If the setting is **Off**, upgrade by changing Parameter 6 and deliberately
+scheduling a new policy run; changing a Once-per-user policy's parameters does not
+rerun already-completed installs. For a profile change, update the profile and
+schedule a new run in the same way.
 
 Unsigned release binaries may be acceptable for an approved internal pilot.
 Checksum verification establishes integrity relative to the release, not Apple

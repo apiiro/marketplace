@@ -195,7 +195,7 @@ ensure_on_path() {
 # the command.
 # ----------------------------------------------------------------------------
 wire_agents() {
-  if "$1" agents install >/dev/null 2>&1; then
+  if APIIRO_AUTO_UPDATE=off "$1" agents install >/dev/null 2>&1; then
     status "configured installed coding agents"
   fi
 }
@@ -241,14 +241,14 @@ main() {
   mv "$tmp/apiiro" "$target"
   status "installed to $target"
 
-  if ! "$target" --version >/dev/null 2>&1; then
+  if ! APIIRO_AUTO_UPDATE=off "$target" --version >/dev/null 2>&1; then
     error "installation verification failed — $target did not run"
   fi
 
   ensure_on_path "$bin_dir"
   wire_agents "$target"
 
-  version=$("$target" --version 2>/dev/null || echo "")
+  version=$(APIIRO_AUTO_UPDATE=off "$target" --version 2>/dev/null || echo "")
   printf '\n  Apiiro CLI %s installed.\n\n' "$version"
 
   if [ -n "$PATH_MODIFIED" ]; then

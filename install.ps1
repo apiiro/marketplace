@@ -80,41 +80,47 @@ function Install-Apiiro {
         Remove-Item -Recurse -Force $tmp -ErrorAction SilentlyContinue
     }
 
-    # Sanity check
-    & $target --version | Out-Null
-    if ($LASTEXITCODE -ne 0) { throw "installation verification failed — $target did not run" }
-
-    # Add to user PATH if missing. Read and write the raw registry value with
-    # its kind preserved: [Environment]::GetEnvironmentVariable expands
-    # %VAR%-style entries and SetEnvironmentVariable rewrites the key as REG_SZ,
-    # which would freeze any REG_EXPAND_SZ entries (e.g. %USERPROFILE%\bin) in
-    # the user's existing PATH.
-    $pathModified = $false
-    if ($env:APIIRO_NO_MODIFY_PATH -ne '1') {
-        $envKey = [Microsoft.Win32.Registry]::CurrentUser.OpenSubKey('Environment', $true)
-        if (-not $envKey) { $envKey = [Microsoft.Win32.Registry]::CurrentUser.CreateSubKey('Environment') }
-        try {
-            $userPath = [string]$envKey.GetValue('Path', '', [Microsoft.Win32.RegistryValueOptions]::DoNotExpandEnvironmentNames)
-            $kind = try { $envKey.GetValueKind('Path') } catch { [Microsoft.Win32.RegistryValueKind]::ExpandString }
-            $onPath = ($userPath -split ';' | Where-Object { $_ }) -contains $binDir
-            if (-not $onPath) {
-                $newPath = if ($userPath) { "$userPath;$binDir" } else { $binDir }
-                $envKey.SetValue('Path', $newPath, $kind)
-                $env:Path = "$env:Path;$binDir"
-                $pathModified = $true
-            }
-        } finally {
-            $envKey.Dispose()
-        }
-    }
-
-    # Best-effort: wire Apiiro into any installed coding agents (skills only).
+    $previousAutoUpdate = $env:APIIRO_AUTO_UPDATE
+    $env:APIIRO_AUTO_UPDATE = 'off'
     try {
-        & $target agents install *> $null
-        if ($LASTEXITCODE -eq 0) { Write-Host "  configured installed coding agents" }
-    } catch { }
+        # Sanity check
+        & $target --version | Out-Null
+        if ($LASTEXITCODE -ne 0) { throw "installation verification failed — $target did not run" }
 
-    $version = (& $target --version) 2>$null
+        # Add to user PATH if missing. Read and write the raw registry value with
+        # its kind preserved: [Environment]::GetEnvironmentVariable expands
+        # %VAR%-style entries and SetEnvironmentVariable rewrites the key as REG_SZ,
+        # which would freeze any REG_EXPAND_SZ entries (e.g. %USERPROFILE%\bin) in
+        # the user's existing PATH.
+        $pathModified = $false
+        if ($env:APIIRO_NO_MODIFY_PATH -ne '1') {
+            $envKey = [Microsoft.Win32.Registry]::CurrentUser.OpenSubKey('Environment', $true)
+            if (-not $envKey) { $envKey = [Microsoft.Win32.Registry]::CurrentUser.CreateSubKey('Environment') }
+            try {
+                $userPath = [string]$envKey.GetValue('Path', '', [Microsoft.Win32.RegistryValueOptions]::DoNotExpandEnvironmentNames)
+                $kind = try { $envKey.GetValueKind('Path') } catch { [Microsoft.Win32.RegistryValueKind]::ExpandString }
+                $onPath = ($userPath -split ';' | Where-Object { $_ }) -contains $binDir
+                if (-not $onPath) {
+                    $newPath = if ($userPath) { "$userPath;$binDir" } else { $binDir }
+                    $envKey.SetValue('Path', $newPath, $kind)
+                    $env:Path = "$env:Path;$binDir"
+                    $pathModified = $true
+                }
+            } finally {
+                $envKey.Dispose()
+            }
+        }
+
+        # Best-effort: wire Apiiro into any installed coding agents (skills only).
+        try {
+            & $target agents install *> $null
+            if ($LASTEXITCODE -eq 0) { Write-Host "  configured installed coding agents" }
+        } catch { }
+
+        $version = (& $target --version) 2>$null
+    } finally {
+        $env:APIIRO_AUTO_UPDATE = $previousAutoUpdate
+    }
     Write-Host ""
     Write-Host "  Apiiro CLI $version installed."
     Write-Host ""

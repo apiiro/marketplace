@@ -47,7 +47,7 @@ main() {
     emit console_user none
     emit status installed_pending_user
     emit binary "$CLI_BIN"
-    emit version "$($CLI_BIN --version 2>/dev/null || printf unknown)"
+    emit version "$(APIIRO_AUTO_UPDATE=off $CLI_BIN --version 2>/dev/null || printf unknown)"
     emit collected_at "$(now_utc)"
     echo '</result>'
     exit 0
