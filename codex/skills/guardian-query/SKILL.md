@@ -18,15 +18,17 @@ Auto-detects the current git repository for context (like `risks` does). No need
 If the question is clearly about the org as a whole (e.g. "top risks last week", "what are our policies"), use `--global`. If it's unclear, ask the user: _"Should I scope this to the current repo, or across your whole org?"_
 
 ```bash
-apiiro guardian query "what risks exist in this repo"
-apiiro guardian query "deep analysis of auth flow" --model normal
-apiiro guardian query "what is STRIDE?" --global          # General security question
-apiiro guardian query "top risks across the org last week" --global
-apiiro guardian query "what are our org security policies?" --global
-apiiro guardian query "detailed analysis" --timeout 120   # wait longer between responses
-apiiro guardian query "what risks exist here" --remote gh  # use the 'gh' remote, not origin
-apiiro guardian query "risk analysis" -f analysis.md
+apiiro ask "what risks exist in this repo"
+apiiro ask "deep analysis of auth flow" --model normal
+apiiro ask "what is STRIDE?" --global          # General security question
+apiiro ask "top risks across the org last week" --global
+apiiro ask "what are our org security policies?" --global
+apiiro ask "detailed analysis" --timeout 120   # wait longer between responses
+apiiro ask "what risks exist here" --remote gh  # use the 'gh' remote, not origin
+apiiro ask "risk analysis" -f analysis.md
 ```
+
+On `unknown command 'ask'` (older CLI), use `apiiro guardian query` with the same arguments.
 
 Options: `--model <fast|normal>` (default: `fast`), `-g, --global`, `--remote <name>`, `--repository-key <key>`, `--timeout <seconds>` (default: 60, measured as max inactivity between responses), `-f, --file <path>`.
 

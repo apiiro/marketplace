@@ -14,13 +14,15 @@ This is different from `apiiro threat-model` — secure-prompt enhances a task y
 Auto-detects the current git repository for context.
 
 ```bash
-apiiro guardian secure-prompt "implement user authentication with JWT"
-apiiro guardian secure-prompt "add file upload endpoint"
-apiiro guardian secure-prompt "build payment processing module" -o json
-apiiro guardian secure-prompt "create REST API" --global       # Without repo context
-apiiro guardian secure-prompt "implement OAuth flow" -f enhanced.txt
-apiiro guardian secure-prompt "build payment module" --force   # Bypass classifier gate
+apiiro secure-prompt "implement user authentication with JWT"
+apiiro secure-prompt "add file upload endpoint"
+apiiro secure-prompt "build payment processing module" -o json
+apiiro secure-prompt "create REST API" --global       # Without repo context
+apiiro secure-prompt "implement OAuth flow" -f enhanced.txt
+apiiro secure-prompt "build payment module" --force   # Bypass classifier gate
 ```
+
+On `unknown command 'secure-prompt'` (older CLI), use `apiiro guardian secure-prompt` with the same arguments.
 
 Options: `-g, --global`, `--force` (bypass classifier gate), `-o, --output <json|text>` (default: text), `-f, --file <path>`.
 

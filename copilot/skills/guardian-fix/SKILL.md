@@ -56,7 +56,7 @@ apiiro risks fix <risk-id> --repository-key <key> --context /tmp/risk-context.js
 If you want to run the steps yourself:
 
 1. `apiiro risks remediate <risk-id>` — curated remediation. If `is_prompt: true`, apply `content`. If `is_prompt: false`, go to step 2.
-2. `apiiro guardian query "how do I remediate risk <risk-id>?" --timeout 120` — Guardian fallback.
+2. `apiiro ask "how do I remediate risk <risk-id>?" --timeout 120` — Guardian fallback. On `unknown command 'ask'` (older CLI), use `apiiro guardian query` with the same arguments.
 
 ## Options
 

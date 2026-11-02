@@ -15,7 +15,7 @@ Start with `apiiro api list` before guessing a path. It reads the OpenAPI docume
 apiiro api list                          # every published endpoint
 apiiro api list risks                    # filter on path, summary, operation id, or tag
 apiiro api list applications -o json     # machine-readable: data.endpoints[] with method, path, operationId, summary, tags, permission, queryParameters
-apiiro api /rest-api/v1/openapi.json     # the full document, for parameters and schemas
+apiiro api get /rest-api/v1/openapi.json # the full document, for parameters and schemas
 ```
 
 If the server answers 404, it predates the discovery endpoint; fall back to https://docs.apiiro.com/api.
@@ -23,16 +23,24 @@ If the server answers 404, it predates the discovery endpoint; fall back to http
 ## Usage
 
 ```bash
-apiiro api "/rest-api/v1/risks?filters[RiskLevel]=Critical"      # GET with filters
-apiiro api /rest-api/v1/applications                              # GET
-apiiro api /rest-api/v1/applications -d '{"name": "my-app"}'     # POST (inferred from --data)
-apiiro api /rest-api/v1/applications/<key> -X PATCH -d @patch.json
-cat body.json | apiiro api /rest-api/v1/diffScans -d @-           # body from stdin
-apiiro api /rest-api/v1/risks -i                                  # include status + headers
-apiiro api /rest-api/v1/risks -H "Accept: application/json"      # extra header (repeatable)
+apiiro api get "/rest-api/v1/risks?filters[RiskLevel]=Critical"  # GET with filters
+apiiro api get /rest-api/v1/applications                          # GET
+apiiro api get /rest-api/v1/risks -i                              # include status + headers
+apiiro api get /rest-api/v1/risks -H "Accept: application/json"  # extra header (repeatable)
 ```
 
-Options: `-X, --method <GET|POST|PUT|PATCH|DELETE>` (default GET, or POST when `--data` is given), `-d, --data <json|@file|@->`, `-H, --header "Name: value"` (repeatable), `-i, --include`, `--api-url <url>`, `--timeout <seconds>`.
+On `The path must start with "/" (got "get")` (older CLI), use `apiiro api <path>` for reads; for writes, ask the user to update the CLI.
+
+For writes, show the user the exact command and ask them to run it in their own terminal:
+
+```bash
+APIIRO_ENABLE_API_CALL=1 apiiro api call /rest-api/v1/applications -d '{"name": "my-app"}'
+APIIRO_ENABLE_API_CALL=1 apiiro api call /rest-api/v1/applications/<key> -X PATCH -d @patch.json
+```
+
+`apiiro api call` is off by default and requires the exact `<METHOD> <path>` to be typed in a terminal for every request. Do not run it yourself; show the user the exact command and ask them to run it in their own terminal. `-d @-` is unsupported; use inline JSON or `-d @file`.
+
+Options: `api get` supports `-H, --header "Name: value"` (repeatable) and `-i, --include`. `api call` also supports `-X, --method <POST|PUT|PATCH|DELETE>` and `-d, --data <json|@file>` (default POST when `--data` is given). Both support `--api-url <url>` and `--timeout <seconds>`.
 
 Output: the response body goes to stdout, pretty-printed on a terminal and raw when piped, so it composes with `jq`. Exit code 0 for 2xx, 1 otherwise; on failure the error body is printed.
 
@@ -41,7 +49,7 @@ Output: the response body goes to stdout, pretty-printed on a terminal and raw w
 - Cross-repository or org-wide data (`risks` and `inventory` are scoped to one repository or application).
 - Filters the dedicated commands do not expose (dates, arbitrary `filters[...]` fields, sorting).
 - Endpoints with no CLI command: applications, projects, servers, diff-scan lookups by id.
-- Mutations (POST/PATCH/DELETE) — show the user the exact method, path, and body and get their confirmation before sending any non-GET request. Read paths (GET) need no confirmation.
+- Mutations (POST/PATCH/DELETE) — show the user the exact command, method, path, and body for them to run in their own terminal. Read paths (GET) need no confirmation.
 
 Quote paths containing `[`, `]`, `?`, or `&` so the shell does not expand them. Do not guess endpoint paths or filter names; run `apiiro api list <term>` (or fetch `/rest-api/v1/openapi.json` for parameters), fall back to https://docs.apiiro.com/api, and say when a path is unverified.
 

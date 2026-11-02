@@ -69,7 +69,7 @@ Probe which features are enabled for the user's environment. Run these commands 
 apiiro fast-scan config 2>&1
 
 # Guardian
-apiiro guardian query "test" --global 2>&1
+apiiro ask "test" --global 2>&1
 
 # Threat Modeling
 apiiro threat-model "test" 2>&1
@@ -85,10 +85,10 @@ Present a summary table to the user showing which features are enabled and which
 
 ## 6. Configure prevention hooks
 
-- Run: `apiiro init` — detects Claude Code, Cursor, GitHub Copilot CLI, and OpenAI Codex, installs the skills and the prevention hooks (session context, prompt enrichment where the host supports it, and commit scanning); then run `apiiro doctor` to verify the result. The Codex and Copilot CLI hooks need a 2026.09.09 or newer CLI — upgrade first if `apiiro --version` is older
-- Only Claude Code and Codex enrich each prompt; Cursor and Copilot CLI get session context plus commit scanning, because neither host's prompt hook can inject context
+- Run: `apiiro init` — detects Claude Code, Cursor, GitHub Copilot CLI, OpenAI Codex, and opencode, installs the skills and the prevention hooks (session context, prompt enrichment where the host supports it, and commit scanning); then run `apiiro doctor` to verify the result. The Codex and Copilot CLI hooks need a 2026.09.09 or newer CLI — upgrade first if `apiiro --version` is older
+- Claude Code, Codex, and opencode enrich each prompt; Cursor and Copilot CLI get session context plus commit scanning, because neither host's prompt hook can inject context
 - Codex runs a hook only after it is trusted once: tell the user to run `codex` in a terminal, type `/hooks`, and trust each Apiiro entry. Until then Codex skips the hooks silently, and a changed or newly added entry (for example after `apiiro hooks update`) needs trusting again
-- For skills without prevention hooks, run `apiiro agents install` instead (`--agent claude|cursor|copilot|codex` for one host, `--all` for every known host); `apiiro agents status` shows what is installed
+- For skills without prevention hooks, run `apiiro agents install` instead (`--agent claude|cursor|copilot|codex|opencode` for one host, `--all` for every known host); `apiiro agents status` shows what is installed
 - Restart Claude Code after setup
 
 ## 7. Offer status line setup (Claude Code only)
