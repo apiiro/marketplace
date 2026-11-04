@@ -28,14 +28,14 @@ Exit codes: 0 = clean or a scan that could not run (not signed in, repository no
 ### Git Hooks
 
 ```bash
-apiiro hooks pre-commit install                   # Install pre-commit (scans all types), post-commit and post-rewrite
+apiiro hooks pre-commit install                   # Install the pre-commit hook (scans all types)
 apiiro hooks pre-commit install --scan-type secrets --force
 apiiro hooks pre-commit install --global          # Opt in to the global core.hooksPath directory instead
 apiiro hooks pre-commit status
 apiiro hooks pre-commit uninstall
 ```
 
-The pre-commit hook scans staged files; skip it temporarily with `git commit --no-verify`. The post-commit and post-rewrite hooks link each new, amended, or rebased commit to the coding session that produced it and never block a commit. An existing hook is kept as `<hook>.pre-apiiro` and runs first; `--force` overwrites it instead.
+The pre-commit hook scans staged files; skip it temporarily with `git commit --no-verify`. An existing hook is kept as `pre-commit.pre-apiiro` and runs first; `--force` overwrites it instead. Install also removes the post-commit and post-rewrite hooks earlier versions installed.
 
 ## Diff Scan
 

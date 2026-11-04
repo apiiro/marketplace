@@ -217,21 +217,41 @@ Exit codes: 0 = `Success` or `Warn`, 1 = `Block` or an error (including a `--wai
 
 ### Risks
 
-List and inspect risks for a repository. Agent skills: `guardian-risks` (list/inspect), `guardian-fix` (remediate).
+List, inspect and change risks. Agent skills: `guardian-risks` (list/inspect/change), `guardian-fix` (remediate).
 
 ```bash
-apiiro risks                                     # List all risks (auto-detects repo)
+apiiro risks                                     # List risks (auto-detects repo)
 apiiro risks --repo my-repo-name                 # Specify repo (defaults to its default branch)
 apiiro risks --repo my-repo-name --branch dev    # Target a specific monitored branch
 apiiro risks --repository-id <repo-id>           # Specify repo (branch) by ID
 apiiro risks --risk-level Critical               # Filter by risk level
 apiiro risks --risk-category "API Security"      # Filter by category
-apiiro risks get <risk-id>                       # Get risk details
-apiiro risks remediate <risk-id>                 # Get remediation instructions
+apiiro risks --max-pages 20                      # Fetch more pages (default cap: 5)
+apiiro risks --category secrets                  # Read a category's own route, with its extra fields
+apiiro risks --lifecycle                         # Lifecycle records: discovered, resolved, closed reason
+apiiro risks --stats-by repositories             # Risk counts per repository, application or applicationGroups
+apiiro risks --trend mttr                        # mttr, top-risks, sla-breach, risk-score (last 7 days; top-risks is current)
+apiiro risks --design                            # Design risks from design reviews
+apiiro risks <risk-id>                           # Risk details (add --category or --lifecycle for those routes)
+apiiro risks <risk-id> --remediate               # Remediation prompt
 apiiro risks fix <risk-id>                       # Curated remediation when available, Guardian fallback otherwise
 ```
 
-Each monitored branch is its own profile with its own ID; use `--branch` or `--repository-id` to pin one.
+Each monitored branch is its own profile with its own ID; use `--branch` or `--repository-id` to pin one. Lists stop after `--max-pages` pages; JSON output then has `"truncated": true`. `--trend` and `<risk-id>` with `--category` or `--lifecycle` print the API's JSON as is; `--stats-by` and `--design` print `{items, truncated}`. Lists with `--category` or `--lifecycle` keep every field under `risks` in `-o json`; text output shows the common columns. `--trend risk-score` needs exactly one of `--repository-id` or `--application-id`. The old `apiiro risks get` and `risks remediate` still work but are deprecated.
+
+Change risks and triage findings:
+
+```bash
+apiiro risks update <risk-id> --status Accepted --reason "Compensating control in place"
+apiiro risks update <risk-id> --status Ignored --ignore-reason FalsePositive
+apiiro risks update <risk-id> --level Low --reason "Internal-only service"
+apiiro risks update <risk-id> --set dueDate=2026-12-31T00:00:00Z
+apiiro risks update <risk-id> --set riskTags=Owner:Platform,Env:prod   # Replaces all tags; riskTags= clears them
+apiiro findings triage <risk-id>                                       # AI triage of a SAST finding
+apiiro findings triage <risk-id> --override FalsePositive --reason "Test fixture only"
+```
+
+Each write shows the change and asks before it sends. `--yes` sends without asking; without a terminal and without `--yes`, nothing is sent (exit 130). API keys need the "Change risk status" permission for `--status`, "Override risk level" for `--level`, the "Risks" permission group with write access for `--set`, and "Full control" for `findings triage`. Reading `<risk-id>` or `--design` also needs "Full control".
 
 ### Inventory
 
@@ -291,7 +311,7 @@ apiiro ask "what risks exist here" --remote gh   # detect via a non-origin remot
 
 ### Secure Prompt
 
-Enhance a coding task with security considerations. Use `--global` to skip repository detection, `--file <path>` to save the result, `--force` to bypass the classifier gate, or `-o json` for JSON output.
+Enhance a coding task with security considerations. Requires a repository monitored by Apiiro: run it inside one (detected from the git remote) or pass `--repository-key <key>`. Use `--file <path>` to save the result, `--force` to bypass the classifier gate, or `-o json` for JSON output.
 
 ```bash
 apiiro secure-prompt "Add a file upload endpoint"
@@ -308,19 +328,20 @@ apiiro guardian repository clear     # Clear cached repo info
 
 ### Hooks
 
-Git hooks (pre-commit scanning, plus post-commit and post-rewrite session binding) and lifecycle hooks for Claude Code, Cursor, GitHub Copilot CLI, OpenAI Codex, and opencode. The agent hooks authenticate at session start and add security context where each host protocol permits it.
+A git pre-commit scanning hook and lifecycle hooks for Claude Code, Cursor, GitHub Copilot CLI, OpenAI Codex, and opencode. The agent hooks authenticate at session start and add security context where each host protocol permits it.
 
 Claude Code waits for startup sign-in before submitting the first prompt. If
 authentication is missing in an existing session, Secure Prompt starts sign-in
 and continues the same prompt after authentication succeeds. Concurrent sessions
 share one browser sign-in, with a four-minute login budget. If sign-in fails or
-times out, the prompt remains blocked. Explicitly disabling all hook features
-also disables startup sign-in.
+times out, the prompt is sent without security enrichment and the hook shows a
+notice to run `apiiro login`. Explicitly disabling all hook features also
+disables startup sign-in.
 
 ```bash
-apiiro hooks pre-commit install     # Install the pre-commit, post-commit and post-rewrite hooks
-apiiro hooks pre-commit status      # Check each hook
-apiiro hooks pre-commit uninstall   # Remove the hooks, restoring any they ran in front of
+apiiro hooks pre-commit install     # Install the pre-commit hook
+apiiro hooks pre-commit status      # Check the hook
+apiiro hooks pre-commit uninstall   # Remove the hook, restoring any it ran in front of
 apiiro hooks pre-commit install --global   # Install into the global core.hooksPath instead (opt-in)
 
 apiiro hooks claude install            # Enable the apiiro-prevention plugin (CLI equivalent of /plugin install)
@@ -348,11 +369,13 @@ apiiro hooks update                 # Refresh locally-installed hook artifacts o
 apiiro hooks update --dry-run       # Preview without making changes
 ```
 
-`apiiro hooks pre-commit install` writes three hooks into the repository's `.git/hooks`: `pre-commit` scans staged files, and `post-commit` / `post-rewrite` link each new, amended, or rebased commit to the coding session that produced it, so Apiiro can attribute code to the session that wrote it whichever front end made the commit — a terminal, an IDE, or a coding agent. A hook that already exists (Husky, Lefthook, your own script) is kept: it is renamed to `<hook>.pre-apiiro`, runs first with the same arguments and input, and is restored by `uninstall`; pass `--force` to overwrite it instead. The pre-commit hook refuses a commit only when your organization's prevention workflows block it or a finding meets the `--fail-on` threshold; when the scan cannot run it prints why and lets the commit through. When the Apiiro coding-agent hook has already checked the same staged files for the same commit and reached a decision the git hook would repeat, the git hook skips its own scan, so a commit is scanned once, and repeats the reason when that decision was "the scan could not run here" (for example a repository outside your user scope); a warning-level verdict, any finding, a partial scan, another remote, branch or API URL, or a run with `--repository-key` is scanned again. A file that was staged and then deleted from the working tree is scanned from the index, because that is what the commit contains. The post-commit hooks never block or fail a commit — they give up silently after three seconds, without credentials, outside a monitored repository, or when the feature is not enabled for your organization. `--global` installs into the directory your global `core.hooksPath` points to (creating `~/.apiiro/git-hooks` and setting `core.hooksPath` when none is configured) and is never used unless you ask for it.
+`apiiro hooks pre-commit install` writes a `pre-commit` hook into the repository's `.git/hooks` that scans staged files. A hook that already exists (Husky, Lefthook, your own script) is kept: it is renamed to `pre-commit.pre-apiiro`, runs first with the same arguments and input, and is restored by `uninstall`; pass `--force` to overwrite it instead. The pre-commit hook refuses a commit only when your organization's prevention workflows block it or a finding meets the `--fail-on` threshold; when the scan cannot run it prints why and lets the commit through. When the Apiiro coding-agent hook has already checked the same staged files for the same commit and reached a decision the git hook would repeat, the git hook skips its own scan, so a commit is scanned once, and repeats the reason when that decision was "the scan could not run here" (for example a repository outside your user scope); a warning-level verdict, any finding, a partial scan, another remote, branch or API URL, or a run with `--repository-key` is scanned again. A file that was staged and then deleted from the working tree is scanned from the index, because that is what the commit contains. `install`, `uninstall` and `apiiro hooks update` also remove the `post-commit` and `post-rewrite` hooks that earlier versions installed, restoring any hook they ran in front of. In a global `core.hooksPath` directory, `install` and `update` leave a small pass-through in their place that sends nothing, so your repositories' own `post-commit` and `post-rewrite` hooks keep running; `uninstall --global` removes it, unless other hooks in `~/.apiiro/git-hooks` keep `core.hooksPath` in use. `--global` installs into the directory your global `core.hooksPath` points to (creating `~/.apiiro/git-hooks` and setting `core.hooksPath` when none is configured) and is never used unless you ask for it.
 
 With server support for session context, Claude Code and opencode prevention hooks also send bounded repo-relative file paths and sanitized ticket/link references so follow-up prompts retain the task context. A link reference keeps only its scheme and host, so paths, query strings, and credentials never leave your machine, and these hooks send no edit contents, diffs, or tool response bodies and never block an edit. Secret-pattern redaction and length bounds apply to the prompt text that prompt enrichment sends; session records expire after 24 hours without use. `apiiro hooks config disable disableEnrichSession` turns these context hooks off together with the session-start context.
 
 `apiiro hooks config enable preventLog` keeps each prompt that Secure Prompt enriches on your machine in `~/.apiiro/prevent-log/<session-id>.jsonl` (readable only by you): the time, session id, working directory, the first 200 characters of the prompt, and the security context added to it, with common secrets (bearer tokens, cloud and Git provider tokens, private keys, and `api_key=` or `password=`-style values) redacted. The log is off by default. Any plugin or process running as you can read it, so on machines where Claude Code's managed settings keep prompt content and hook output away from other plugins, enabling it gives up that isolation. Nothing in this log is sent anywhere. While the log is enabled, each prompt deletes session logs that have not been written to for seven days. Disabling it (`apiiro hooks config disable preventLog`, or `disable all`) stops that cleanup, so delete `~/.apiiro/prevent-log` yourself to clear what remains.
+
+The Claude Code prevention hooks also report each commit a Claude Code shell command makes, so Apiiro can attribute the commit to the session that produced it. The report runs in the background after the command, never blocks or changes it, and gives up silently after three seconds, without credentials, outside a monitored repository, or when the feature is not enabled for your organization. Commits made outside Claude Code shell commands (a terminal, an IDE, a rebase) are not reported.
 
 These context hooks run in the background (Claude Code does not wait on them before continuing), each capped at a few seconds so a slow network never leaves a process behind. In a headless `claude -p` run, Claude Code can end the session before a background hook finishes, so a fragment from the run's final tool call may not be recorded.
 
@@ -435,7 +458,7 @@ The CLI may send anonymous usage analytics (command name, success/failure, durat
 
 The first time analytics would be recorded in an interactive terminal, the CLI prints a one-time notice on stderr. Telemetry is disabled automatically in CI environments, and you can opt out at any time with `APIIRO_TELEMETRY=0` or the standard `DO_NOT_TRACK=1`.
 
-Separately from analytics, the post-commit and post-rewrite hooks report each commit they see to **your own Apiiro tenant**: the repository key, commit sha, parent shas, branch, commit time, the coding-session id when one is known (and where it came from), the coding agent that was running, and the CLI version — never file content, diffs, or messages. It is how Apiiro attributes a commit to the session that produced it; it is only sent when you are signed in, and a failure to send it never affects the commit.
+Separately from analytics, the Claude Code prevention hooks report each commit a Claude Code shell command makes to **your own Apiiro tenant**: the repository key, commit sha, parent shas, branch, commit time, the Claude Code session id (and whether git printed the commit or it was inferred), the coding agent, and the CLI version — never file content, diffs, or messages. It is how Apiiro attributes a commit to the session that produced it; it is only sent when you are signed in, and a failure to send it never affects the commit.
 
 To keep itself on your organization's version, the CLI asks **your own Apiiro tenant** for the version setting about once an hour while you use it. That request carries the operating system, processor architecture, install method, update state, last update error, the latest stable version the CLI found, and a random id for this account on this machine, so your administrators can see which versions are in use. It is only sent when you are signed in, and it never contains code or repository data.
 
@@ -448,6 +471,19 @@ The prompt hook's local log of enriched prompts (see [Hooks](#hooks)) stays on y
 - **TLS / HTTPS errors** (corporate TLS inspection) — Point `NODE_EXTRA_CA_CERTS` at a PEM file from your IT team and retry.
 - **"Certificate has expired"** — Try `apiiro login --no-merge-system-ca`.
 - **macOS: keychain export slow or failing** — Raise `APIIRO_CA_EXPORT_TIMEOUT_MS` / `APIIRO_CA_EXPORT_MAX_BUFFER_BYTES`, or set `APIIRO_FORCE_SECURITY_EXPORT=1`.
+
+## Support
+
+For help with the Apiiro CLI or the Apiiro plugin for ChatGPT and Codex, submit a ticket at [support.apiiro.com](https://support.apiiro.com) or from your Apiiro tenant.
+
+Please include:
+
+- The host you are using (ChatGPT, Codex CLI, Codex app, or Codex IDE extension)
+- The plugin version, or the CLI version from `apiiro --version`
+- A short description of the issue and the steps to reproduce it
+- Any error message, with credentials, tokens, and other sensitive values removed
+
+Do not post credentials, confidential code, or security findings in public GitHub issues or discussions. Include them only in a support ticket.
 
 ## Documentation
 

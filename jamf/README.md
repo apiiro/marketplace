@@ -130,7 +130,8 @@ Each user authenticates with their own Apiiro account. The Claude SessionStart h
 opens login when credentials are missing; this is not silent service-account login.
 Startup sign-in completes before the first prompt proceeds. Existing sessions
 can also initiate sign-in on a prompt, and concurrent sessions share one login.
-Login is bounded to four minutes; unsuccessful sign-in still blocks the prompt.
+Login is bounded to four minutes; if sign-in is unsuccessful, the prompt is sent
+without security enrichment and the hook shows a notice to run `apiiro login`.
 When parameter 9 is set, the policy passes the restriction to user-scoped Claude
 hook installation and persists it only in Jamf-owned environment settings, so new
 authorization requests from that user are limited to the selected environments.

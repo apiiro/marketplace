@@ -54,6 +54,30 @@
             "async": true
           }
         ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "apiiro hooks claude commit-event",
+            "async": true,
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "PostToolUseFailure": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "apiiro hooks claude commit-event",
+            "async": true,
+            "timeout": 10
+          }
+        ]
       }
     ]
   }
