@@ -46,7 +46,7 @@ Output: the response body goes to stdout, pretty-printed on a terminal and raw w
 
 ## When to use this instead of a dedicated command
 
-- Cross-repository or org-wide data (`risks` and `inventory` are scoped to one repository or application).
+- Cross-repository or org-wide data (`risks` and the `inventory` list are scoped to one repository or application).
 - Filters the dedicated commands do not expose (dates, arbitrary `filters[...]` fields, sorting).
 - Endpoints with no CLI command: applications, projects, servers, diff-scan lookups by id.
 - Mutations (POST/PATCH/DELETE) — show the user the exact command, method, path, and body for them to run in their own terminal. Read paths (GET) need no confirmation.

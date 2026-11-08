@@ -44,7 +44,7 @@ function Install-Apiiro {
         # Verify against the published checksums. Fail closed: checksums.txt
         # ships with every release, so a failed fetch or a missing entry means
         # something is wrong (or someone is blocking it to force an unverified
-        # install) — refuse rather than downgrade to a warning.
+        # install); refuse rather than downgrade to a warning.
         Write-Host "  fetching checksums"
         $tmpSums = Join-Path $tmp 'checksums.txt'
         try {
@@ -69,7 +69,7 @@ function Install-Apiiro {
                 if ($LASTEXITCODE -ne 0) { throw "build-provenance verification failed for $asset" }
                 Write-Host "  provenance verified"
             } else {
-                Write-Warning "APIIRO_VERIFY_ATTESTATION=1 but the gh CLI is not installed — cannot verify provenance"
+                Write-Warning "APIIRO_VERIFY_ATTESTATION=1 but the gh CLI is not installed; cannot verify provenance"
             }
         }
 
@@ -85,7 +85,7 @@ function Install-Apiiro {
     try {
         # Sanity check
         & $target --version | Out-Null
-        if ($LASTEXITCODE -ne 0) { throw "installation verification failed — $target did not run" }
+        if ($LASTEXITCODE -ne 0) { throw "installation verification failed: $target did not run" }
 
         # Add to user PATH if missing. Read and write the raw registry value with
         # its kind preserved: [Environment]::GetEnvironmentVariable expands

@@ -104,28 +104,54 @@ Tell the user:
 
 If the user wants to proceed, delegate to the `statusline-setup` agent with these details:
 
-### Case A: No existing status line
+### Case A: No existing status line, or one left by an earlier Apiiro setup
 
-Add to `~/.claude/settings.json`. Use the script that matches the user's OS:
+Earlier versions pointed `statusLine.command` at `${CLAUDE_PLUGIN_ROOT}/scripts/statusline.sh` or `statusline.ps1`, which the plugin no longer ships, so that status line is now blank. Treat such a command as no status line: replace it with the one below.
 
-**macOS / Linux:**
+Create the script that matches the user's OS, then add the `statusLine` entry to `~/.claude/settings.json`.
+
+**macOS / Linux:** write `~/.claude/apiiro-statusline.sh` and make it executable (`chmod +x`):
+
+```bash
+#!/usr/bin/env bash
+input=$(cat)
+SESSION_ID=$(printf '%s' "$input" | jq -r '.session_id // empty' 2>/dev/null)
+SESSION_FILE="$HOME/.apiiro/sessions/$SESSION_ID"
+MAX_AGE=600
+if [ -n "$SESSION_ID" ] && [ -f "$SESSION_FILE" ]; then
+  MTIME=$(stat -f %m "$SESSION_FILE" 2>/dev/null || stat -c %Y "$SESSION_FILE" 2>/dev/null || echo 0)
+  [ $(($(date +%s) - MTIME)) -lt $MAX_AGE ] && echo "🛡️ Apiiro Guardian Activated"
+fi
+```
 
 ```json
 {
   "statusLine": {
     "type": "command",
-    "command": "${CLAUDE_PLUGIN_ROOT}/scripts/statusline.sh"
+    "command": "~/.claude/apiiro-statusline.sh"
   }
 }
 ```
 
-**Windows:**
+**Windows:** write `%USERPROFILE%\.claude\apiiro-statusline.ps1`, then put its absolute path (for example `C:\Users\<name>\.claude\apiiro-statusline.ps1`) in the command:
+
+```powershell
+$inputText = [Console]::In.ReadToEnd()
+$SessionId = ''
+try { $SessionId = ($inputText | ConvertFrom-Json -ErrorAction Stop).session_id } catch { }
+if (-not $SessionId) { exit 0 }
+$SessionFile = Join-Path $HOME ".apiiro/sessions/$SessionId"
+if (Test-Path -LiteralPath $SessionFile -PathType Leaf) {
+  $age = (Get-Date).ToUniversalTime().Subtract((Get-Item -LiteralPath $SessionFile).LastWriteTimeUtc).TotalSeconds
+  if ($age -lt 600) { Write-Output ([char]::ConvertFromUtf32(0x1F6E1) + [char]0xFE0F + " Apiiro Guardian Activated") }
+}
+```
 
 ```json
 {
   "statusLine": {
     "type": "command",
-    "command": "powershell -ExecutionPolicy Bypass -File \"${CLAUDE_PLUGIN_ROOT}/scripts/statusline.ps1\""
+    "command": "powershell -ExecutionPolicy Bypass -File \"<absolute path of apiiro-statusline.ps1>\""
   }
 }
 ```

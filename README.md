@@ -177,7 +177,7 @@ Alternatively, set the `APIIRO_API_KEY` environment variable.
 
 ### Fast Scan
 
-Quick local scanning for secrets and OSS vulnerabilities. Requires a repository monitored by Apiiro with an `origin` remote. The CLI checks repository eligibility before uploading file contents; unmonitored repositories are skipped, not reported as clean. Auto-detects changed files in the current git repo. Agent skill: `guardian-scan`.
+Quick local scanning for secrets and OSS vulnerabilities. Requires a git repository with an `origin` remote. The CLI checks repository eligibility before uploading file contents; unmonitored repositories are skipped unless Apiiro has enabled scanning them for your environment. Skipped scans are not reported as clean. Auto-detects changed files in the current git repo. Agent skill: `guardian-scan`.
 
 ```bash
 apiiro fast-scan secrets            # Scan for secrets
@@ -255,7 +255,7 @@ Each write shows the change and asks before it sends. `--yes` sends without aski
 
 ### Inventory
 
-List inventory items (APIs, dependencies, sensitive data, secrets) for a repository or application. Requires a scope (auto-detected from git, or one of the explicit flags).
+List inventory items (APIs, dependencies, sensitive data, secrets) for a repository or application. The list needs a scope (auto-detected from git, or one of the explicit flags).
 
 ```bash
 apiiro inventory                                 # Auto-detect repo from git
@@ -265,7 +265,17 @@ apiiro inventory --application-id <app-id>       # Scope to an application
 apiiro inventory --entity-type API               # Filter: API, Dependency, Secret, SensitiveData, ...
 apiiro inventory --repo my-repo -o json          # JSON output
 apiiro inventory --repo my-repo --max-pages -1   # Fetch every page (default cap: 5)
+apiiro inventory --type secret                   # api, dependency, secret, sensitive-data, technology, module
+apiiro inventory <item-key>                      # One item
+apiiro inventory --deleted --since 2026-10-01    # Items deleted since a date (kept for 30 days)
+apiiro inventory --secret <sha>                  # A secret's validity override
+apiiro inventory sbom --repository-id <repo-id>  # SBOM; or --application-id, --format cyclonedx|spdx
+apiiro secrets update <sha> --validity invalid --reason "Rotated"   # valid, invalid, or auto to clear the override
+apiiro contributors                              # Contributors (5 pages by default); <key> for one
+apiiro contributors --export -f contributors.jsonl                  # Every contributor as JSON Lines
 ```
+
+`inventory <item-key>`, `--type module`, `--deleted`, `--secret`, `inventory sbom` and `contributors <key>` print the API's JSON. In JSON, `"truncated": true` means the list stopped at `--max-pages`; raise it to fetch more. `secrets update` asks before it sends, like `risks update`, and changes every occurrence of the same secret value. `apiiro contributors` needs the contributors API enabled for your organization. API keys need "Inventory management" for inventory lists, `--deleted`, `--secret` and SBOMs, with write access for `secrets update`, and "Full control" for `inventory <item-key>`, `--type module` and `contributors`.
 
 ### Raw API Access
 
