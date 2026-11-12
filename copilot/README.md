@@ -175,6 +175,48 @@ Alternatively, set the `APIIRO_API_KEY` environment variable.
 
 ## Commands
 
+### Scans
+
+Read results for diff, pull-request and build scans, or trigger a new scan. Agent skill: `guardian-scan`.
+
+```bash
+apiiro scans <id>                              # Diff scan results (V2)
+apiiro scans <id> --type pr --wait              # Wait for pull-request results
+apiiro scans <id> --type build                  # Build scan results
+apiiro scans <id> --legacy                     # V1 diff results (also supported for pr)
+apiiro scans --config --git-url https://github.com/org/repo
+
+apiiro scans trigger -b main -c feature-branch -r https://github.com/org/repo --wait --yes
+apiiro scans trigger --type diff -b <base-sha> -c <candidate-sha> \
+  --baseline-type Commit --candidate-type Commit --wait --yes
+apiiro scans trigger --type pr --pr 42 -r https://github.com/org/repo --wait --yes
+apiiro scans trigger --type build --commit <40-character-sha> --branch main --directory src --yes
+apiiro scans trigger --finish-upload <id> --type pr --yes
+```
+
+Triggers ask for confirmation every time; `--yes` skips the question for automation. The default type is `diff`. Repository URLs are detected from git when `-r, --repository-url` is omitted. Diff triggers also support `-i, --interactive`, `--baseline-type` and `--candidate-type` (`Branch`, `Tag`, `Commit`), `--wait-external`, `--legacy`, and `--no-wait`. Pull-request and build triggers support `--wait`. `--wait-external` applies to diff and pull-request triggers. `--finish-upload` applies to diff and pull-request scans that wait for external findings.
+
+Build scan commits must have 40 hexadecimal characters; uppercase letters are accepted and sent lowercase.
+
+Results support `--wait`, `--timeout <seconds>` (default: 300), `-o json|text`, and `-f <path>`. Exit codes: 0 = `Success` or `Warn` (or a passing build), 1 = `Block`, a failing build or an error, including a wait timeout, 2 = not signed in or results still pending without `--wait`. Keep the scan ID to check again after a timeout.
+
+### Quick Scans
+
+Scan changed or staged files for secrets, OSS vulnerabilities, AI SAST code weaknesses, and IaC misconfigurations. The default runs all four scanners. AI SAST can take several minutes. Requires a git repository with a remote. Repository eligibility is checked before uploading file contents; unmonitored repositories are skipped unless Apiiro has enabled scanning them for your environment. Skipped scans are reported with a reason.
+
+```bash
+apiiro scans trigger --type quick --yes
+apiiro scans trigger --type quick src/config.ts --scanners secrets --yes
+apiiro scans trigger --type quick --staged --scanners secrets,oss --yes
+apiiro scans trigger --type quick --scanners secrets,oss,ai-sast,iac --yes
+```
+
+Choose one scanner, or include both `secrets` and `oss` with optional `ai-sast` and `iac`.
+
+Quick scans use the same output, server verdicts and exit codes as `fast-scan`: 0 for clean results or a scanner that could not run; 1 for findings, a server `Block`, or a usage error. With a server verdict, `Warn` and `Success` allow the scan even when findings are present. The new commands require sign-in (exit 2 when missing). The pattern-scanner budget is 2 seconds by default, capped at 5 with `--timeout`; individual AI SAST and IaC scans use their existing longer budgets.
+
+The old names still work. `diff-scan` is a hidden, deprecated alias with its original flags (`-s <id>` to read results), and runs without confirmation. `fast-scan` and every subcommand remain available without warnings or confirmation for installed hooks and IDE integrations. For example, `apiiro fast-scan all --staged` runs secrets and OSS; `apiiro fast-scan secrets --full --fail-on high` scans whole files with an explicit severity threshold. Its `--commit` and `--base-commit` options remain available. Signed-out fast scans keep reporting a skipped scan with exit 0; `fast-scan config` requires sign-in.
+
 ### Fast Scan
 
 Quick local scanning for secrets and OSS vulnerabilities. Requires a git repository with an `origin` remote. The CLI checks repository eligibility before uploading file contents; unmonitored repositories are skipped unless Apiiro has enabled scanning them for your environment. Skipped scans are not reported as clean. Auto-detects changed files in the current git repo. Agent skill: `guardian-scan`.
@@ -215,6 +257,38 @@ apiiro diff-scan -i
 
 Exit codes: 0 = `Success` or `Warn`, 1 = `Block` or an error (including a `--wait` timeout), 2 = not signed in, or the scan checked with `-s` is still running. A blocked scan exits 1 whether you wait for it with `--wait` or check it later with `-s <scan-id>`.
 
+### Pull Requests
+
+```bash
+apiiro pull-requests --repo <scmRepositoryKey> --status Blocked Pending -o json
+apiiro pull-requests --stats --workflow <key> --look-back-days 30
+apiiro pull-requests --server-url https://github.com --since 2026-10-01 --until 2026-10-31
+```
+
+Allowed statuses: `Blocked`, `Unblocked`, `Pending`, `TimedOut`. Filters also accept `--repo`, `--workflow`, and exact `--server-url`. `--look-back-days` accepts 0–365 (server default: 30); ISO `--since` and `--until` narrow that window. Both list and statistics use offset paging: `--page-size` defaults to 100 (max: 1000), `--max-pages` defaults to 5. A capped result prints a truncation note; JSON is `{items, truncated}`. Use `-o json|text` and `-f <path>` for output.
+
+### CI/CD Records
+
+```bash
+apiiro cicd create --build --commit <40-lowercase-hex-sha> --repo <repositoryKey> \
+  --version 1.2 --application payments --build-id 42 --build-url https://example.com/build/42 --yes
+apiiro cicd create --deployment --deployment-id 42 --name production --url https://example.com/deploy/42 \
+  --commit <sha1> <sha2> --repo-version payments=1.2 web=2.0 --yes
+```
+
+Choose exactly one of `--build` or `--deployment`. Build records require one commit and a repository key. Deployment records require `--deployment-id` and at least one `--commit` or `--repo-version`; `--name` and `--url` are optional. These commands record metadata through the existing CI/CD API. They ask before sending; `--yes` skips confirmation. Successful writes have an empty server response and print a success message (`{}` with `-o json`). Output supports `-o json|text` and `-f <path>`.
+
+### Managed Semgrep
+
+```bash
+apiiro semgrep -o json
+apiiro semgrep update --git https://github.com/org/rules --yes
+apiiro semgrep update --git <url> --provider-repo <key> --yes
+apiiro semgrep update --tar rules.tar --yes
+```
+
+Updates require exactly one of `--git` or `--tar`; `--provider-repo` requires `--git`. Updates ask before replacing the rules; `--yes` skips confirmation. Tar files stream from disk with a default request timeout of 600 seconds; set `--timeout <seconds>` to override it. Updates print the server's message. All commands support `-o json|text` and `-f <path>`. Configuration can be unavailable when AI SAST scan effort manages the rules.
+
 ### Risks
 
 List, inspect and change risks. Agent skills: `guardian-risks` (list/inspect/change), `guardian-fix` (remediate).
@@ -253,6 +327,30 @@ apiiro findings triage <risk-id> --override FalsePositive --reason "Test fixture
 
 Each write shows the change and asks before it sends. `--yes` sends without asking; without a terminal and without `--yes`, nothing is sent (exit 130). API keys need the "Change risk status" permission for `--status`, "Override risk level" for `--level`, the "Risks" permission group with write access for `--set`, and "Full control" for `findings triage`. Reading `<risk-id>` or `--design` also needs "Full control".
 
+### Findings and engagements
+
+```bash
+apiiro findings --repository-id <id> --application-id <id> --risk-level High -o json
+apiiro findings --page-size 100 --max-pages -1
+apiiro findings upload report.json
+apiiro findings upload report.json --yes -o json
+apiiro findings delete --system <id> --finding-id <id> --finding-id <other-id>
+apiiro findings delete --system <id>
+apiiro engagements --type Pentest --status Active --lead <key> -o json
+apiiro engagements <key>
+apiiro engagements create --data '{"name":"Annual assessment","type":"Pentest","startDate":"2026-11-01T00:00:00Z","status":"Active"}'
+apiiro engagements update <key> --data @engagement.json
+apiiro engagements delete <key>
+```
+
+`findings` lists manual-assessment findings. Its optional filters are `--repository-id`, `--application-id` and `--risk-level`. The list rejects `--repository-key` and `--remote`. Omitted filters leave the list organization-wide within your access scope. `engagements` lists or reads one key. List filters are `--type Pentest|General`, `--status Active|Scheduled|InReview|Closed` and `--lead <key>`. Both lists support `--page-size` (1–1000, default 100) and `--max-pages` (default 5, `-1` for all). JSON lists contain `{items, truncated}`; text output says when the page limit leaves more results. Both support `-o json` and `-f <path>`.
+
+`findings upload` streams the file as a JSON request body and prints server warnings. Reports require `scanId`, `scanProjectName`, `providerName` and `providerId`; the server validates the report. Uploads use a ten-minute timeout unless you pass `--timeout <seconds>`. The confirmation shows the file path and size. `--yes` skips this confirmation.
+
+Engagement create and update accept inline JSON or `--data @file` and ask before sending (`--yes` skips). Required fields are `name`, `type`, `startDate` and `status`. Optional fields include `externalUrl`, `summary`, `scope` (`applicationKeys` and `repositoryKeys` arrays), `endDate`, `tags`, `engagementLeadKey`, `provider` and `attachments`. **Update uses PUT to replace the whole engagement; omitted fields are reset.** Read the current engagement first and include all fields you want to keep.
+
+Both delete commands always require typing the exact system id or engagement key in a terminal and have no `--yes`. `findings delete` deletes findings sent through the legacy general-findings API for the given system id. Without `--finding-id`, it targets **all legacy findings for that system id**. Findings sent by `findings upload` or listed by `findings` are stored separately. Success means the request was accepted; the server returns no deletion count, even for an unknown system id. Engagement delete permanently removes the engagement **and its findings and reports**. Without confirmation, nothing is sent (exit 130).
+
 ### Inventory
 
 List inventory items (APIs, dependencies, sensitive data, secrets) for a repository or application. The list needs a scope (auto-detected from git, or one of the explicit flags).
@@ -270,12 +368,236 @@ apiiro inventory <item-key>                      # One item
 apiiro inventory --deleted --since 2026-10-01    # Items deleted since a date (kept for 30 days)
 apiiro inventory --secret <sha>                  # A secret's validity override
 apiiro inventory sbom --repository-id <repo-id>  # SBOM; or --application-id, --format cyclonedx|spdx
+apiiro artifacts                                 # Artifacts; filter with --type, --application-id, --team-id
+apiiro artifacts <artifact-id>                   # Versions of one artifact
+apiiro artifacts <artifact-id> --risks           # Risks of one artifact
+apiiro artifacts --container-images              # Container images from the v1 API
+apiiro artifacts --import <import-id>            # SBOM import status
+apiiro artifacts import --file sbom.json --version 1.0 --name my-sbom --yes
+apiiro artifacts import --file sbom.json --version 2.0 --artifact <artifact-id> --yes
+apiiro artifacts delete <artifact-id>            # Permanently delete an SBOM artifact; type its ID to confirm
+apiiro artifacts delete <artifact-id> --version <version-id>
+apiiro artifacts delete <artifact-id> -o json     # {"id":"...","version":null,"deleted":true}
 apiiro secrets update <sha> --validity invalid --reason "Rotated"   # valid, invalid, or auto to clear the override
 apiiro contributors                              # Contributors (5 pages by default); <key> for one
 apiiro contributors --export -f contributors.jsonl                  # Every contributor as JSON Lines
 ```
 
-`inventory <item-key>`, `--type module`, `--deleted`, `--secret`, `inventory sbom` and `contributors <key>` print the API's JSON. In JSON, `"truncated": true` means the list stopped at `--max-pages`; raise it to fetch more. `secrets update` asks before it sends, like `risks update`, and changes every occurrence of the same secret value. `apiiro contributors` needs the contributors API enabled for your organization. API keys need "Inventory management" for inventory lists, `--deleted`, `--secret` and SBOMs, with write access for `secrets update`, and "Full control" for `inventory <item-key>`, `--type module` and `contributors`.
+`inventory <item-key>`, `--type module`, `--deleted`, `--secret`, `inventory sbom` and `contributors <key>` print the API's JSON. Artifact lists take `--page-size` 1–200 (default 100). `--risks` requires an artifact ID; text rows show risk ID, rule name and risk level. `--container-images` uses the v1 container image list; text rows show ID, image ID and type. Both support `--max-pages`, `-o json` (`items` and `truncated`) and `-f`. Container images use offset paging and accept only the paging and output options; the default artifact list uses v2. New artifact imports take `--name` and optional `--application-id`; existing artifacts take `--artifact`. SBOM imports stream from disk and accept files up to 512 MB. Imports ask before sending unless `--yes` is present. Artifact commands accept `-o json` and `-f <output-path>` before or after the subcommand; import uses `--file` for the SBOM input and `-f`/`--output-file` for saved output. `artifacts delete` works only on SBOM artifacts and permanently deletes their versions, dependencies and findings. With `--version`, it deletes only that version and names it in the confirmation prompt. Empty artifact IDs and versions are rejected before confirmation. Delete JSON includes `id`, `version` (null for the whole artifact), and `deleted: true`. In JSON, `"truncated": true` means the list stopped at `--max-pages`; raise it to fetch more. `secrets update` asks before it sends, like `risks update`, and changes every occurrence of the same secret value. `apiiro contributors` needs the contributors API enabled for your organization. API keys need "Inventory management" for inventory lists, `--deleted`, `--secret` and SBOMs, with write access for `secrets update`, and "Full control" for `inventory <item-key>`, `--type module` and `contributors`.
+
+### Policies, coverage, issues and reports
+
+These commands read data without confirmation prompts. Each supports `-o json|text` (default text) and `-f <file>`.
+
+```bash
+apiiro policies                                  # All enabled policies, no server paging
+apiiro policies --repo my-repo -o json            # Raw policy array, all fields preserved
+apiiro coverage                                  # Repository scanner coverage
+apiiro coverage --repo my-repo --page-size 100 --max-pages -1
+apiiro coverage --projects                       # External scanner projects; no repository filter
+apiiro coverage --providers                      # Provider names, no server paging
+apiiro issues                                    # Open issues across repositories
+apiiro issues --repo my-repo                      # Issues linked through pull requests
+apiiro issues --closed --issue-id ISSUE-123       # Closed issues, filtered by ID
+apiiro reports list --search risk --type card --collection Security --limit 25
+apiiro reports details --card 123                # Exactly one of --card or --dashboard
+apiiro reports run --card 123 --param '{"id":"repository","value":["my-repo"]}'
+apiiro reports run --card 123 --dashboard 10 --dashcard 20
+apiiro reports compliance --framework soc2 --query control_summary --limit 20
+apiiro reports compliance --framework soc2 --query repo_violations --repo my-repo
+```
+
+`policies`, repository `coverage`, and `issues` accept `--repo <name>` or `--repository-key <key>`. Policies and coverage select the default monitored branch by name or a specific branch profile by key; issues span all repository branches. Without either, they read across the organization. Ambiguous names need `--repository-key`. They do not auto-detect a repository. `coverage --projects --repo` is an error; `--providers` accepts no repository or paging flags.
+
+Repository and project coverage and issues use `--page-size <1..1000>` (default 100) and `--max-pages <count>` (default 5; `-1` for all). JSON is `{items, truncated}`; text says when more items exist. Project pages can be empty while more pages exist. Issues can change during paging, so an updated issue may be skipped. Policies and provider names return their full raw arrays in JSON and have no paging flags. Issues expose only indexed filters: repository, issue ID and open/closed state.
+
+Reports require Guardian enabled and use your own credentials. Report data can be up to an hour stale. `list` accepts `--search`, `--type card|model|dashboard|all`, `--collection`, and `--limit <1..100>` (server default 25). `details` requires exactly one positive `--card` or `--dashboard` ID and shows the name, description, parameter IDs and dashboard card IDs. `run` requires `--card`; dashboard filters need both `--dashboard` and `--dashcard`. Repeat `--param` for each JSON object, using parameter IDs from `details`. Runs return up to 100 rows; `truncated` marks a capped result. Reports have no `--page-size` or `--max-pages` flags. JSON preserves the tool result; text shows report entries, parameters, result rows or compliance summary fields.
+
+`compliance` accepts `--framework soc2|pcidss|nist800-53|iso27001`; Guardian requires it except for `cross_framework`. Its `--query` is `control_summary` (default), `app_violations`, `cross_framework` or `repo_violations`. Only `repo_violations` takes and requires `--repo <name>`. `--limit <1..100>` defaults to 20 on the server.
+
+### Applications and Application Groups
+
+```bash
+apiiro applications --page-size 100 --max-pages 5 -o json
+apiiro applications <key>
+apiiro applications create --data @application.json
+apiiro applications update <key> --set name=Payments --set businessImpact=High --set-json isInternetFacing=true --add-tag team:payments --remove-tag old
+apiiro applications delete <key>
+apiiro application-groups --page-size 100 --max-pages 5 -o json
+apiiro application-groups <key>
+apiiro application-groups create --data '{"name":"Payments","tags":[],"applications":["app-key"],"pointsOfContact":[]}'
+apiiro application-groups update <key> --data @group.json
+apiiro application-groups delete <key>
+```
+
+Lists default to 100 items per page and 5 pages; `--max-pages -1` fetches all pages. JSON includes `items` and `truncated`; raise `--max-pages` when truncated. Create and update ask before sending; `--yes` skips that question. Deletes always require the exact key typed in a terminal. `--set` always sends a string; repeatable `--set-json field=json` parses JSON and rejects invalid JSON. Application updates send one JSON Patch; a partial update reports failed fields and exits non-zero. Group updates replace the full body and require at least one application key.
+### OSS, Incidents, Feed and Custom Advisories
+
+Read vulnerability and package content, security incidents, and the security feed. API keys need "Full control" read permission; advisory writes need write permission. Custom advisories require the CustomAdvisories feature enabled for your organization.
+
+```bash
+apiiro oss CVE-2021-44228                        # CVE details merged with EPSS scores
+apiiro oss 'pkg:npm/lodash@4.17.20'              # Package and dependency findings
+apiiro oss 'pkg:npm/lodash@4.17.20' --license    # License IDs, source and source URLs
+apiiro oss 'pkg:npm/lodash' --license --full     # Include full license text
+apiiro incidents                                # Incident list
+apiiro incidents <id>                           # One incident
+apiiro incidents <id> --scope --since 2026-10-01 # Affected packages added after a date
+apiiro feed --repo <key> --status Followed       # Computed feed; also --application and --team
+apiiro feed --questions --type Announcement     # Feed rules; also Manual or Seed
+apiiro advisories                               # Custom advisory list
+apiiro advisories <id>                          # One custom advisory
+apiiro advisories update --input advisory.json  # Create or replace, asks before sending
+apiiro advisories delete <id>                   # Requires typing the ID in a terminal
+```
+
+All these commands accept `-o json|text` (default text) and `-f <file>` for output. CVE IDs are uppercased before lookup. `oss --license` requires a package URL; JSON includes full license text, while text includes it only with `--full`.
+
+Lists fetch up to 5 pages by default. Use `--page-size <size>` (default 100; max 100 for incidents and scope, max 1000 for feed and advisories) and `--max-pages <count>` (`-1` for all). JSON lists return `{items, truncated}`; `truncated: true` and the text hint mean more items exist. An incident ID alone and an advisory ID reject paging flags. Incidents have no list filters; `--since` requires an ID and `--scope`.
+
+Feed `--repo`, `--application` and `--team` take keys and scope the counts; they do not hide items. `--status` accepts `ForYou`, `Followed` or `Dismissed`; the server defaults to `ForYou`, which includes followed items. `--questions` is unpaged, accepts `--status` and `--type Manual|Seed|Announcement`, and rejects key and paging flags. Its JSON is the raw rule array; text shows a short summary without `insightPredicate` or `ruleTarget`.
+
+`advisories update --input <file.json>` takes a JSON object with `advisoryId` and the advisory fields. It creates a new ID or **replaces the whole existing advisory**: omitted fields reset, and affected packages are re-scored. The server validates the body. Use `--yes` to skip update confirmation. `--input` is separate from the `-f` output path. Delete also re-scores packages, requires the exact ID typed in a terminal, and has no `--yes` option. Both operations send nothing when confirmation is refused.
+
+### Connectors, Audit Logs and Export
+
+```bash
+apiiro connectors                                      # List connectors
+apiiro connectors <id>                                 # Read one connector
+apiiro connectors create --type github --url https://github.com/my-org
+apiiro connectors update <id> --token-expiration-date 2027-01-01
+apiiro audit-logs --status Failure --since 2026-11-01 --until 2026-11-08
+apiiro export                                          # List available routes
+apiiro export repositories --file repositories.json     # Stream an export to a file
+apiiro export repositories/<key>/apis                   # Stream to stdout
+```
+
+Connector writes require a token from `APIIRO_CONNECTOR_TOKEN` or piped stdin with `--token-stdin` (which takes precedence and removes the trailing newline). Tokens cannot be passed as command arguments. Writes ask before sending; `--yes` skips the prompt. For piped stdin, use `--token-stdin --yes` after approving the change. The token is excluded from prompts and output. Creation supports `--type github|gitlab|bitbucket|azureDevops`, `--url`, optional `--description` and `--token-expiration-date` (ISO date). `--username` is required for `bitbucket` and `azureDevops`. Creation requires a server version that supports connector creation; older servers return a clear error. `connectors update <id>` changes the token and optional expiration date only; `-o json` returns `{id, tokenUpdated: true}`.
+
+`audit-logs` supports `--event-type`, `--status Success|Failure`, `--user`, `--user-type User|Token|System`, and paired `--since` / `--until` dates (`yyyy-MM-dd`, `yyyy-MM-ddTHH:mm:ssZ` or `yyyy-MM-ddTHH:mm:ss.fffZ`). Date-only `--until` includes the whole day. The filters use indexed fields. Connector and audit-log lists fetch up to 5 pages by default. Both support `--page-size 1..1000` and `--max-pages <count>` (`-1` for all). Text output shows one line per item; connector reads show the ID, provider, URL and token expiration. Audit-log lines show time, event type, status, user and event description. JSON output includes `{items, truncated}`; `truncated: true` means more pages may exist. Lists and individual connector reads support `-o json` and `--file`.
+
+`export` lists the routes available on your server, so the list can differ between versions. Pass the part after `/rest-api/v1/export/`, replacing any placeholders with real keys. Route segments are encoded separately. Put query parameters after `?` and quote the argument, for example `apiiro export 'applications/<key>/sbom?format=CycloneDx'`. Export responses stream directly to stdout or `--file`, with a 10-minute timeout by default; `--timeout <seconds>` overrides it. A file is replaced only after the download completes. `-o json` applies to the routes list; route downloads keep the response bytes. These commands require a token with **Full control** permission.
+
+### Roles, role groups and users
+
+Manage access roles and Apiiro user groups, and read users in those groups.
+
+```bash
+apiiro roles                                       # List roles
+apiiro roles <key>                                 # Read a role (JSON)
+apiiro roles create --data '{"name":"Security Admin","permissions":{"Governance":"Write"},"scope":null}'
+apiiro roles update <key> --permission Governance=Read --assign-group Apiiro:<group-key>
+apiiro roles update <key> --unassign-group Idp:<group-key>
+apiiro roles delete <key>
+apiiro role-groups                                 # List groups
+apiiro role-groups <key>                           # Read a group (JSON)
+apiiro role-groups create --data '{"name":"Platform","adminIds":["admin@example.com"],"memberIds":["member@example.com"]}'
+apiiro role-groups update <key> --data '{"name":"Platform","memberIds":[]}'
+apiiro role-groups delete <key>
+apiiro users                                       # List users in role groups
+apiiro users 'member@example.com'                   # Read group membership (JSON)
+```
+
+Lists use `--page-size <1..1000>` (default 100) and `--max-pages <count>` (default 5; `-1` fetches all). JSON list output (`-o json`) is `{items, truncated}`; text output warns when more results may exist. Lists contain `{key, name}` for roles and groups, and `{userId}` for users. User details contain `{userId, groups:[{groupKey, userRole}]}`. Users outside every role group return “No user <id> in any role group.”
+
+Create and update ask before sending; `--yes` skips the prompt. `--data` accepts inline JSON or `@file`. Creates return the new key (text) or `{key}` (`-o json`). Delete always requires typing the key in a terminal. Deleting a role group also unassigns it from every role. Commands support `-o json` and `-f <path>`.
+
+Roles require a name and permissions on create. A null scope grants global scope; scope can restrict applications, repositories and organizational teams. Optional `description`, `idpGroupIds` and `apiiroGroupIds` are accepted. Newer servers also support `scimGroupIds` and scope fields `applicationGroupKeys` and `connectorIds`. SCIM support depends on the server version and whether it is enabled for your organization.
+
+Role updates accept repeatable `--permission Name=Read|Write`, `--assign-group type:groupKey` and `--unassign-group type:groupKey`, with type `Idp`, `Apiiro` or `Scim`. At least one flag is required. Name, description and scope cannot be changed after create. Requests run one at a time: permissions first, assignments next, removals last. On failure, the command stops and reports which changes were already applied; earlier changes stay applied.
+
+Role-group updates require `name`. Omitted or null `description`, `adminIds` and `memberIds` keep their stored values; `[]` clears an admin or member list. Roles need the Roles access-token permission, role groups need OrganizationalTeams, and users need Users; reads require Read and writes require Write. For role create and update, the token must also hold every permission and scope the role grants; a token can only grant what it holds.
+
+### Explorer
+
+Run a read-only ApiiroQL query across your organization. The server validates the query and queried type.
+
+```bash
+apiiro explorer "<ApiiroQL>" --type RepositoryProfile
+apiiro explorer "<ApiiroQL>" --type RiskTriggerSummary --columns name,url -o json
+apiiro explorer "<ApiiroQL>" --type RepositoryProfile --max-pages -1 -f results.json -o json
+```
+
+`--type` is required (for example, `RepositoryProfile`, `RiskTriggerSummary`, `ApiElement`, or `DependencyDeclaration`). `--limit` caps matching rows processed by the query (1..100000, default 1000). `--columns` keeps comma-separated column keys locally; empty keys are rejected before submission, and an unknown key lists the valid keys. Available columns depend on the query.
+
+The command submits the query, waits for completion, then fetches result pages. `--wait` caps the wait (default 300 seconds). On timeout, the error includes the query ID and says it is still running. `--page-size` defaults to 100 (maximum 1000); `--max-pages` defaults to 5, or `-1` for all pages within the query's limit. A concurrency limit error includes the server's retry delay when supplied; the command does not resubmit automatically.
+
+`-o text` (default) prints a block per row and a row count. `-o json` prints `{queryId, columns, rows, truncated}` with rows keyed by column key. `truncated: true` means the page cap was reached; raise `--max-pages` to fetch more. `-f <path>` saves either format to a file. `--api-url <url>` selects the API server.
+
+### Teams
+
+```bash
+apiiro teams --page-size 100 --max-pages 5 -o json
+apiiro teams <key>
+apiiro teams create --data @team.json
+apiiro teams update <key> --set name=Payments --set parentKey=parent-team --add-tag owner:payments --remove-tag old
+apiiro teams delete <key>
+```
+
+Teams page, update and delete like applications. Text shows the key, name and parent key. Deleting a team clears the parent key of its child teams and removes the roles scoped to it.
+
+### Repositories
+
+```bash
+apiiro repositories --page-size 100 --max-pages 5 -o json
+apiiro repositories <key-or-name>
+apiiro repositories https://github.com/org/repo
+apiiro repositories --detect                 # Detect and verify the current repo
+apiiro repositories --clear                  # Clear this repo's cached detection
+apiiro repositories --clear --global         # Clear all cached detections
+apiiro repositories update <scm-key> --monitor
+apiiro repositories update <scm-key> --unmonitor
+apiiro repositories update <scm-key> --monitor-branch main
+apiiro repositories update <scm-key> --unmonitor-branch old
+apiiro repositories update <scm-key> --add-tag team:payments
+apiiro repositories update <scm-key> --remove-tag team
+apiiro repos update <scm-key> --monitor     # repos is an alias of repositories
+apiiro scm-repositories --page-size 100 --max-pages 5 -o json
+apiiro scm-repositories <key-or-name>
+apiiro scm-repositories --tag team:payments
+apiiro scm-repositories <scm-key> -o json      # Only tags, as a JSON array
+apiiro scm-repositories update <scm-key> --monitor
+apiiro scm-repositories update <scm-key> --unmonitor
+apiiro scm-repositories update <scm-key> --monitor-branch main
+apiiro scm-repositories update <scm-key> --unmonitor-branch old
+apiiro scm-repositories update <scm-key> --add-tag team:payments
+apiiro scm-repositories update <scm-key> --remove-tag team
+```
+
+`repositories` lists monitored branch profiles. A URL (including `git@` and `ssh://` URLs) filters by exact repository URL. Azure DevOps SSH URLs and Bitbucket Server SSH URLs on port 7999 are converted to their repository web URLs. Other values try a key first, then an exact name after a 404. A key lookup prints the API's JSON object. `scm-repositories` lists SCM records; a value first tries an SCM key and prints its tags (a JSON array with `-o json`), then searches by name after a 404. A name matches part of the name, without case, and `--tag name:value` lists the records that carry that tag (split on the first `:`). A name or key lookup with no matches exits 1; an empty tag search prints `0 SCM repository(s)` and exits 0. A key that starts with `-` goes after `--`, for example `apiiro repositories -- -AbC123`.
+
+Lists default to 100 items per page and 5 pages; `--max-pages -1` fetches all pages. JSON lists include `items` and `truncated`. `--tag` cannot be combined with a repository argument. `--detect` and `--clear` take no repository argument and no paging flags; `--global` requires `--clear`. Detection failures exit 2.
+
+`repositories update` (also `repos update`) and `scm-repositories update` use the same SCM repository key, options and SCM routes. Updates take exactly one change per run and ask before sending; `--yes` skips the question. `--add-tag` uses the same `name:value` form as `--tag`. Updates print the response JSON, or a success message for an empty response.
+
+### AutoFix
+
+Queue server-side fixes for risks, list jobs, and follow their results:
+
+```bash
+apiiro autofix                                           # Newest jobs first
+apiiro autofix --risk <riskKey> --status Queued AgentWorking
+apiiro autofix --status Completed --status Failed -o json
+apiiro autofix --page-size 100 --max-pages 10
+apiiro autofix <jobId>                                   # Includes per-risk results and pull request details
+apiiro autofix <jobId> --open-pr                          # Ask to queue a pull request
+apiiro autofix trigger <riskKey...>                       # Ask to queue fixes for 1-100 distinct risks
+apiiro autofix trigger <riskKey...> --dry-run --yes        # Push branches without opening pull requests
+```
+
+Statuses: `Queued`, `AssemblingContext`, `AgentWorking`, `Completed`, `Failed`, `Cancelled`.
+`--status` accepts several values and can be repeated. List filters are `--risk` and `--status`.
+Lists fetch up to 5 pages of 20 jobs by default (`--page-size` max 100); use `--max-pages -1` for no limit. A warning says when more jobs exist.
+Job IDs and `--open-pr` cannot be combined with list filters or paging flags.
+
+Both writes ask for confirmation each time; `--yes` skips the question. Trigger removes duplicate risk keys.
+`--dry-run` pushes a branch without opening a pull request. Organization simulation settings may also make a job a dry run.
+Trigger prints queued jobs and skipped risks with their reasons, and exits nonzero if every risk is skipped.
+`--open-pr` works only on a completed dry-run job with no pull request yet (`canOpenPr: true`). It queues the request; run `apiiro autofix <jobId>` later to see the pull request link.
+
+All modes accept `-o json|text` and `-f <path>`. List JSON is `{ items, truncated }`; other modes keep the server response fields. Put trigger flags after `trigger`, for example `apiiro autofix trigger <riskKey...> --yes -o json`.
+API tokens need AutoFix read permission for reads and write permission for writes.
+A trigger permission error can also mean AI consent is off for the organization.
 
 ### Raw API Access
 
@@ -328,13 +650,6 @@ apiiro secure-prompt "Add a file upload endpoint"
 ```
 
 The old `apiiro guardian query` and `apiiro guardian secure-prompt` names still work but are deprecated.
-
-### Guardian Repository
-
-```bash
-apiiro guardian repository detect    # Detect and verify repo in Apiiro
-apiiro guardian repository clear     # Clear cached repo info
-```
 
 ### Hooks
 
@@ -447,6 +762,7 @@ Most commands support:
 
 | Variable | Description | Default |
 |----------|-------------|---------|
+| `APIIRO_CONNECTOR_TOKEN` | Connector token for `connectors create` / `update`; `--token-stdin` overrides it. | — |
 | `NODE_EXTRA_CA_CERTS` | PEM file appended to the CA bundle on the TLS retry. | — |
 | `APIIRO_CA_EXPORT_TIMEOUT_MS` | Timeout (ms) for exporting OS CA certificates (max 20 min). | `180000` |
 | `APIIRO_CA_EXPORT_MAX_BUFFER_BYTES` | Max bytes read when exporting OS CA certificates. | `104857600` |

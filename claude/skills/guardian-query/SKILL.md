@@ -37,9 +37,9 @@ In TTY mode, a progress spinner shows the agent's status while it works, then th
 ## Repository Management
 
 ```bash
-apiiro guardian repository detect          # Detect and verify repo in Apiiro
-apiiro guardian repository clear           # Clear cached repo info
-apiiro guardian repository clear --global  # Clear all cached repos
+apiiro repositories --detect          # Detect and verify repo in Apiiro
+apiiro repositories --clear           # Clear cached repo info
+apiiro repositories --clear --global  # Clear all cached repos
 ```
 
 Detection results are cached for 24 hours.

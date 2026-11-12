@@ -1,6 +1,6 @@
 ---
 name: guardian-fix
-description: "Use when the user wants to fix, remediate, or resolve a security risk or vulnerability (\"how do I fix this risk\", \"remediate this finding\"): Apiiro remediation prompts and Guardian AI fixes. To list risks: guardian-risks."
+description: "Use when the user wants to fix, remediate, or resolve a security risk or vulnerability (\"how do I fix this risk\", \"remediate this finding\"): Apiiro remediation prompts, Guardian AI fixes, and server-side AutoFix jobs. To list risks: guardian-risks."
 ---
 
 # Apiiro Fix
@@ -61,3 +61,30 @@ If you want to run the steps yourself:
 ## Options
 
 `-o, --output <json|text>`, `-f, --file <path>`, `--repository-key <key>` (fix only), `--context <path>` (fix only), `--no-color`.
+
+## Server-side AutoFix
+
+Use AutoFix to queue fixes on the server and follow their jobs. Ask the user before either write, then pass `--yes` when running it from an agent; an unattended write without `--yes` is refused.
+
+```bash
+apiiro autofix trigger <riskKey...> --yes
+apiiro autofix trigger <riskKey...> --dry-run --yes
+apiiro autofix
+apiiro autofix --risk <riskKey> --status Queued AgentWorking
+apiiro autofix --status Completed --status Failed -o json
+apiiro autofix <jobId>
+apiiro autofix <jobId> --open-pr --yes
+```
+
+Trigger accepts 1-100 distinct risk keys, removes duplicates, and prints `jobs` and `skipped` reasons.
+If every risk is skipped, the command exits nonzero. `--dry-run` pushes a branch without opening a pull request; organization simulation settings can also force a dry run.
+`--open-pr` works only on a completed dry-run job with no pull request yet (`canOpenPr: true`). Opening a pull request is queued. Read the job again to see `pullRequest.url`, `pullRequest.number` (a string), and `pullRequest.status`.
+Job details include `canOpenPr`, job and per-risk failure reasons, per-risk status, summary, and changed files.
+
+List filters: `--risk <riskKey>` and repeatable, variadic `--status <statuses...>`.
+Allowed statuses: `Queued`, `AssemblingContext`, `AgentWorking`, `Completed`, `Failed`, `Cancelled`.
+Lists keep newest-first server order and fetch 5 pages of 20 jobs by default.
+Use `--page-size` (max 100) and `--max-pages` (-1 for no limit) to fetch more; a warning reports truncation.
+Job IDs and `--open-pr` cannot combine with list filters or paging flags.
+All AutoFix modes support `-o json|text` and `-f <path>`; list JSON is `{ items, truncated }`; other modes preserve server fields. Put trigger flags after `trigger`, for example `apiiro autofix trigger <riskKey...> --yes -o json`.
+AutoFix requires read permission for reads and write permission for writes. Trigger can also return a permission error when AI consent is off for the organization.
