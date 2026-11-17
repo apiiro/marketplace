@@ -43,7 +43,7 @@ apiiro export repositories --file repositories.json
 apiiro export repositories/<key>/apis
 ```
 
-Before a connector write, show its type, URL or ID and expiration date, ask the user to approve the change in chat, then use `--yes`. Never ask for or place a token in a command argument or chat. The token must already be in `APIIRO_CONNECTOR_TOKEN`, or come from piped stdin with `--token-stdin --yes`. Stdin takes precedence and its trailing newline is removed. Missing tokens fail before any request. Tokens are excluded from prompts and output.
+Before a connector write, show its type, URL or ID and expiration date, ask the user to approve the change in chat, then use `--yes`. Never ask for, read or place a token in a command argument or chat. For a write that sets a token, give the user the command with `--token-stdin --yes` to run in their own terminal, piping the token from their secret store; its trailing newline is removed. Missing tokens fail before any request. Tokens are excluded from prompts and output.
 
 Create types: `github`, `gitlab`, `bitbucket`, `azureDevops`; `--url` is required. `--username` is required for `bitbucket` and `azureDevops`; `--description` and ISO `--token-expiration-date` are optional. Older servers may lack creation routes. Update changes only the token and optional expiration date. With `-o json`, update returns `{id, tokenUpdated: true}`.
 

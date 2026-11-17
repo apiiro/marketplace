@@ -24,17 +24,9 @@ Triggers ask for confirmation every time. Ask the user before running a write, t
 
 `fast-scan` remains available without warnings or confirmation, including `secrets`, `oss`, `all`, `ai-sast`, `iac`, and `config`. Installed hooks and IDE integrations keep using it. Its `--full`, `--fail-on`, `--commit`, and `--base-commit` behavior is unchanged; signed-out scans still skip with exit 0. `fast-scan config` requires sign-in. Pattern scans use a 2-second budget (max 5 via `--timeout`); individual AI SAST and IaC scans use their existing longer budgets.
 
-### Git Hooks
+### Commit Scanning
 
-```bash
-apiiro hooks pre-commit install                   # Install the pre-commit hook (scans all types)
-apiiro hooks pre-commit install --scan-type secrets --force
-apiiro hooks pre-commit install --global          # Opt in to the global core.hooksPath directory instead
-apiiro hooks pre-commit status
-apiiro hooks pre-commit uninstall
-```
-
-The pre-commit hook scans staged files; skip it temporarily with `git commit --no-verify`. An existing hook is kept as `pre-commit.pre-apiiro` and runs first; `--force` overwrites it instead. Install also removes the post-commit and post-rewrite hooks earlier versions installed.
+Commits made by a coding agent are scanned by the Apiiro prevention hooks (`apiiro init`, or `apiiro hooks <agent> install`). The git `pre-commit` hook that earlier versions installed is retired: `apiiro hooks update` and `apiiro uninstall` remove it and restore any hook it ran in front of. To scan staged files from a git hook of your own, run `apiiro fast-scan all --staged`; it exits 0 when the scan cannot run, so the commit goes through.
 
 ## Diff, Pull-request and Build Scans
 

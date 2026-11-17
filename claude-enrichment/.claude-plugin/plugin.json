@@ -1,0 +1,17 @@
+{
+  "name": "guardian-enrichment",
+  "version": "1.12.0",
+  "description": "Shows what Apiiro Guardian's secure-prompt hook added to your prompt",
+  "author": {
+    "name": "Apiiro"
+  },
+  "types": "./types/index.d.ts",
+  "userConfig": {
+    "toasts": {
+      "type": "boolean",
+      "title": "Toast on each enrichment",
+      "description": "Also raise a toast each time Guardian adds security requirements to a prompt. The band and status line show it either way.",
+      "default": false
+    }
+  }
+}

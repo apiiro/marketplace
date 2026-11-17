@@ -58,6 +58,8 @@ the native CLI at `/opt/apiiro/bin/apiiro`, with root ownership and non-writable
 managed paths, and support the direct Claude user hooks used by this policy.
 Parameter 6 must match the package binary's exact version.
 
+Use a signed and notarized package for distribution.
+
 In `pkg` mode the script performs no release download and does not replace the
 package's binary. Package integrity is supplied by the approved package/Jamf
 distribution process, not the public release's checksum. Hook configuration and

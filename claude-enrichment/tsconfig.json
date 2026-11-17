@@ -1,0 +1,4 @@
+{
+  // Claude Code generates .claude-plugin/types/ (gitignored) when it loads the plugin from this folder.
+  "extends": "./.claude-plugin/types/tsconfig.json"
+}

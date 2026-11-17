@@ -133,7 +133,28 @@ npx skills add apiiro/marketplace
 ```
 
 Marketplace plugins are also available for interactive installs. Each host offers
-an `apiiro` skills plugin and an opt-in `apiiro-prevention` hooks plugin:
+an `apiiro` skills plugin and an opt-in `apiiro-prevention` hooks plugin. Claude
+Code also offers `guardian-enrichment`, which displays the security requirements
+Guardian added to each enriched prompt in the terminal and desktop app:
+
+```text
+In Claude Code, register the marketplace and install both plugins:
+/plugin marketplace add apiiro/marketplace
+/plugin install apiiro-prevention@apiiro
+/plugin install guardian-enrichment@apiiro
+
+Then run:
+apiiro hooks config enable preventLog
+```
+
+The enrichment log is off by default. When enabled, it keeps redacted prompt
+excerpts and the added security context in `~/.apiiro/prevent-log/` for seven
+days. Local processes running as your user can read it. The plugin code makes no
+network requests, but Claude Code may persist or sync plugin state according to
+its own host settings; that state includes recent redacted event excerpts and UI
+state.
+
+Each host also offers the following plugins:
 
 ```bash
 # OpenAI Codex
@@ -147,7 +168,7 @@ copilot plugin install apiiro@apiiro
 copilot plugin install apiiro-prevention@apiiro
 ```
 
-Claude Code and Cursor expose the same two plugin names through their plugin
+Claude Code and Cursor expose these plugin names through their plugin
 browsers. Choose either the prevention plugin or `apiiro init`/`apiiro hooks
 <agent> install` for a host, not both, because hosts combine hook sources. Fleet
 and Jamf deployments should continue using `apiiro init --non-interactive`.
@@ -233,6 +254,8 @@ apiiro fast-scan all --commit <sha> --base-commit <ref>   # Attribute the scan t
 ```
 
 Exit codes: 0 = clean, or a scan that could not run; 1 = findings at or above the `--fail-on` threshold (default: any finding), a block by your organization's prevention workflows, or a usage error (a file that does not exist, a `--commit` or `--base-commit` that is not a commit, an output file that cannot be written, or running outside a git repository). A scan that cannot run never fails the command: when you are not signed in, the repository is not monitored or is outside your Apiiro user scope, your role lacks the Fast scan permission, Fast Scan is not enabled, the scan times out, or a scanner errors, the CLI prints the reason as a warning and exits 0, so a pre-commit hook built on it lets the commit through.
+
+`fast-scan --staged` skips its scan when the Apiiro coding-agent hook has already checked the same staged files for the same commit and reached a decision `fast-scan` would repeat, so a commit is scanned once, and repeats the reason when that decision was "the scan could not run here" (for example a repository outside your user scope); a warning-level verdict, any finding, a partial scan, another remote, branch or API URL, or a run with `--repository-key` is scanned again. A file that was staged and then deleted from the working tree is scanned from the index, because that is what the commit contains.
 
 When your organization defines prevention (FastScan) workflows, the scan response carries a server verdict and that verdict decides the exit code instead of the default `--fail-on` threshold — `Block` fails the run, `Warn` and `Success` do not, even when High/Critical findings are present. An explicitly passed `--fail-on <severity>` stays a floor (findings at or above it still fail the run under a `Success` verdict), and `--fail-on none` always keeps exit 0 (report-only). Without a verdict the `--fail-on` behavior is unchanged.
 
@@ -653,7 +676,7 @@ The old `apiiro guardian query` and `apiiro guardian secure-prompt` names still 
 
 ### Hooks
 
-A git pre-commit scanning hook and lifecycle hooks for Claude Code, Cursor, GitHub Copilot CLI, OpenAI Codex, and opencode. The agent hooks authenticate at session start and add security context where each host protocol permits it.
+Lifecycle hooks for Claude Code, Cursor, GitHub Copilot CLI, OpenAI Codex, and opencode. They authenticate at session start, scan the files each agent commit touches, and add security context where each host protocol permits it.
 
 Claude Code waits for startup sign-in before submitting the first prompt. If
 authentication is missing in an existing session, Secure Prompt starts sign-in
@@ -664,11 +687,6 @@ notice to run `apiiro login`. Explicitly disabling all hook features also
 disables startup sign-in.
 
 ```bash
-apiiro hooks pre-commit install     # Install the pre-commit hook
-apiiro hooks pre-commit status      # Check the hook
-apiiro hooks pre-commit uninstall   # Remove the hook, restoring any it ran in front of
-apiiro hooks pre-commit install --global   # Install into the global core.hooksPath instead (opt-in)
-
 apiiro hooks claude install            # Enable the apiiro-prevention plugin (CLI equivalent of /plugin install)
 apiiro hooks claude status             # Check status
 apiiro hooks claude uninstall          # Disable the plugin
@@ -694,7 +712,7 @@ apiiro hooks update                 # Refresh locally-installed hook artifacts o
 apiiro hooks update --dry-run       # Preview without making changes
 ```
 
-`apiiro hooks pre-commit install` writes a `pre-commit` hook into the repository's `.git/hooks` that scans staged files. A hook that already exists (Husky, Lefthook, your own script) is kept: it is renamed to `pre-commit.pre-apiiro`, runs first with the same arguments and input, and is restored by `uninstall`; pass `--force` to overwrite it instead. The pre-commit hook refuses a commit only when your organization's prevention workflows block it or a finding meets the `--fail-on` threshold; when the scan cannot run it prints why and lets the commit through. When the Apiiro coding-agent hook has already checked the same staged files for the same commit and reached a decision the git hook would repeat, the git hook skips its own scan, so a commit is scanned once, and repeats the reason when that decision was "the scan could not run here" (for example a repository outside your user scope); a warning-level verdict, any finding, a partial scan, another remote, branch or API URL, or a run with `--repository-key` is scanned again. A file that was staged and then deleted from the working tree is scanned from the index, because that is what the commit contains. `install`, `uninstall` and `apiiro hooks update` also remove the `post-commit` and `post-rewrite` hooks that earlier versions installed, restoring any hook they ran in front of. In a global `core.hooksPath` directory, `install` and `update` leave a small pass-through in their place that sends nothing, so your repositories' own `post-commit` and `post-rewrite` hooks keep running; `uninstall --global` removes it, unless other hooks in `~/.apiiro/git-hooks` keep `core.hooksPath` in use. `--global` installs into the directory your global `core.hooksPath` points to (creating `~/.apiiro/git-hooks` and setting `core.hooksPath` when none is configured) and is never used unless you ask for it.
+Earlier versions also installed git hooks (`pre-commit`, `post-commit` and `post-rewrite`) through `apiiro hooks pre-commit install`. Apiiro now scans commits through the coding-agent hooks only, so that command is gone, and `apiiro hooks update` (also run by `apiiro update`) and `apiiro uninstall` remove the hooks it installed from the current repository's `.git/hooks`, restoring any hook they ran in front of (kept as `<hook>.pre-apiiro`). In a global `core.hooksPath` directory, `update` leaves a small pass-through in their place that scans and reports nothing, so your repositories' own hooks keep running and a failing `pre-commit` hook of yours still stops the commit; `uninstall` removes the pass-through, unless other hooks in `~/.apiiro/git-hooks` keep `core.hooksPath` in use, and unsets `core.hooksPath` once that directory is empty. To scan staged files from a git hook of your own, run `apiiro fast-scan all --staged` (see [pre-commit](#pre-commit)).
 
 With server support for session context, Claude Code and opencode prevention hooks also send bounded repo-relative file paths and sanitized ticket/link references so follow-up prompts retain the task context. A link reference keeps only its scheme and host, so paths, query strings, and credentials never leave your machine, and these hooks send no edit contents, diffs, or tool response bodies and never block an edit. Secret-pattern redaction and length bounds apply to the prompt text that prompt enrichment sends; session records expire after 24 hours without use. `apiiro hooks config disable disableEnrichSession` turns these context hooks off together with the session-start context.
 
@@ -718,7 +736,7 @@ When your organization defines prevention workflows, the commit scan carries a s
 | Cursor | Commit proceeds, **no message shown** |
 | GitHub Copilot CLI | Commit proceeds, **no message shown** |
 
-Cursor's `preToolUse` protocol attaches messages only to a denied action, and the published GitHub Copilot CLI `preToolUse` contract defines no field for surfacing a warning to you on an allowed call either, so on both hosts a hook cannot let a commit through and still warn you about it. Blocking works the same there as everywhere else. What is lost is every message the hook would attach to a commit it allows — the warning above, and the notice that a scan finished only partially. Until those protocols carry a user-visible message on an allowed action, run `apiiro fast-scan all --staged` on Cursor and Copilot CLI to see warning-level prevention results.
+Cursor's `preToolUse` protocol attaches messages only to a denied action, and the published GitHub Copilot CLI `preToolUse` contract defines no field for surfacing a warning to you on an allowed call either, so on both hosts a hook cannot let a commit through and still warn you about it. Blocking works the same there as everywhere else. What is lost is every message the hook would attach to a commit it allows — the warning above, and the notice that a scan finished only partially. Until those protocols carry a user-visible message on an allowed action, run `apiiro fast-scan all --staged` on Cursor and Copilot CLI, by hand or from the [pre-commit](#pre-commit) framework, to see warning-level prevention results.
 
 Two optional files tune the hooks:
 
@@ -727,7 +745,7 @@ Two optional files tune the hooks:
 
 ### Doctor
 
-Unified health check for your Apiiro setup — CLI version, auth state, per-agent skills, Claude Code plugin status, Cursor hook integrity, Copilot/Codex hook configuration, opencode plugin, pre-commit hook, and hook toggles. Works without authentication.
+Unified health check for your Apiiro setup — CLI version, auth state, per-agent skills, Claude Code plugin status, Cursor hook integrity, Copilot/Codex hook configuration, opencode plugin, and hook toggles. Works without authentication.
 
 ```bash
 apiiro doctor           # Human-readable report

@@ -11,11 +11,10 @@ You are setting up Apiiro. Do the following in order and confirm each step:
 - If already installed, skip to step 2
 - Detect the user's OS and offer the appropriate install method:
 
-**One-line install (macOS / Linux) — simplest:**
+**npm (macOS / Linux / Windows):**
 ```bash
-curl -fsSL https://apiiro.com/install.sh | bash
+npm i -g apiiro-cli
 ```
-Verifies the checksum, installs to `~/.local/bin` (no sudo), and configures PATH. On Windows (PowerShell): `irm https://apiiro.com/install.ps1 | iex`.
 
 **macOS (Homebrew):**
 ```bash
@@ -34,12 +33,17 @@ RPM_URL=$(curl -s https://api.github.com/repos/apiiro/marketplace/releases/lates
 sudo yum install -y "$RPM_URL"
 ```
 
-**Linux (direct download):**
+**Direct download (macOS / Linux):** pick the asset for the platform (`apiiro-macos-arm64`, `apiiro-macos-x64`, `apiiro-linux-x64`, `apiiro-linux-arm64`) and verify it against `checksums.txt` before installing:
 ```bash
-curl -fsSL https://github.com/apiiro/marketplace/releases/latest/download/apiiro-linux-x64 -o apiiro
-chmod +x apiiro
-sudo mv apiiro /usr/local/bin/apiiro
+ASSET=apiiro-linux-x64
+BASE=https://github.com/apiiro/marketplace/releases/latest/download
+SHA=$(command -v sha256sum >/dev/null && echo "sha256sum" || echo "shasum -a 256")
+curl -fsSLO "$BASE/$ASSET" && curl -fsSLO "$BASE/checksums.txt" &&
+grep " $ASSET\$" checksums.txt | $SHA -c - &&
+chmod +x "$ASSET" && mkdir -p ~/.local/bin && mv "$ASSET" ~/.local/bin/apiiro &&
+case ":$PATH:" in *":$HOME/.local/bin:"*) ;; *) echo 'Add to your shell profile: export PATH="$HOME/.local/bin:$PATH"' ;; esac
 ```
+The install stops at the first failed step, so a checksum mismatch installs nothing. If the PATH line prints, add it to `~/.zshrc` or `~/.bashrc` and open a new shell.
 
 **Windows:**
 Download `apiiro-win.exe` from https://github.com/apiiro/marketplace/releases
