@@ -205,6 +205,14 @@ gemini extensions install https://github.com/apiiro/marketplace
 
 Inside Gemini CLI, run `/mcp auth apiiro` if you need to sign in again.
 
+**Antigravity**: the `antigravity/` folder is an Antigravity plugin with the MCP server and an always-on rule. Install it from a local clone:
+
+```bash
+git clone https://github.com/apiiro/marketplace && agy plugin install ./marketplace/antigravity
+```
+
+To sign in again in the Antigravity App, open **Customizations > Installed** and click **Authenticate** next to the Apiiro server.
+
 **Other MCP clients**: use the server URL with the streamable HTTP transport, for example `{"mcpServers": {"apiiro": {"url": "https://mcp.apiiro.com/mcp"}}}`.
 
 Privacy Policy: [apiiro.com/privacy-policy](https://apiiro.com/privacy-policy/). Support: [support.apiiro.com](https://support.apiiro.com) (see [Support](#support)).

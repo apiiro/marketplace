@@ -1,6 +1,6 @@
 {
   "name": "apiiro",
-  "version": "1.12.1",
+  "version": "1.12.2",
   "description": "Apiiro Guardian: application security risks, inventory, secure-coding requirements, threat context, and Autofix from the hosted Apiiro MCP server.",
   "mcpServers": {
     "apiiro": {

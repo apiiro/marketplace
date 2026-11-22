@@ -1,0 +1,32 @@
+{
+  "$schema": "https://antigravity.google/schemas/v1/plugin.json",
+  "name": "apiiro",
+  "displayName": "Apiiro Guardian",
+  "version": "1.12.2",
+  "description": "Application security risks, code inventory, secure-coding requirements, threat context, and Autofix from your organization's Apiiro tenant.",
+  "logo": "assets/logo.png",
+  "suggestedPrompts": [
+    "What are the critical and high security risks in this repository?",
+    "Add this repository's security requirements to my task before I implement it",
+    "Is lodash 4.17.20 vulnerable, and which version should I upgrade to?"
+  ],
+  "author": {
+    "name": "Apiiro",
+    "url": "https://apiiro.com"
+  },
+  "homepage": "https://docs.apiiro.com",
+  "repository": "https://github.com/apiiro/marketplace",
+  "license": "MIT",
+  "keywords": [
+    "apiiro",
+    "security",
+    "appsec",
+    "aspm",
+    "vulnerabilities",
+    "sca",
+    "secrets",
+    "sbom",
+    "autofix",
+    "mcp"
+  ]
+}

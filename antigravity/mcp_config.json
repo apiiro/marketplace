@@ -1,0 +1,7 @@
+{
+  "mcpServers": {
+    "guardian": {
+      "serverUrl": "https://mcp.apiiro.com/mcp"
+    }
+  }
+}

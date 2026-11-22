@@ -1,7 +1,8 @@
 {
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "apiiro",
   "description": "Apiiro security skills for GitHub Copilot CLI. Prevention hooks are a separate opt-in plugin.",
-  "version": "1.12.1",
+  "version": "1.12.2",
   "author": {
     "name": "Apiiro",
     "url": "https://apiiro.com"
@@ -13,7 +14,5 @@
     "security",
     "appsec",
     "devsecops"
-  ],
-  "category": "security",
-  "skills": "skills/"
+  ]
 }
