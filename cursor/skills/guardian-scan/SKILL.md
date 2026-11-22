@@ -18,7 +18,7 @@ apiiro scans trigger --type quick --yes             # All four scanners
 apiiro scans --config                              # Quick-scan configuration
 ```
 
-Scanners: `secrets,oss,ai-sast,iac` (default: all four). Choose one scanner, or include both `secrets` and `oss` with optional `ai-sast` and `iac`. AI SAST can take minutes. Files default to git-changed files; `--staged` reads staged files. Requires a git repository with a remote. Eligibility is checked before uploading file contents. Unmonitored repositories are skipped unless Apiiro allows them for the environment. Skipped scans print a reason.
+Scanners: `secrets,oss,ai-sast,iac` (default: all four). Choose one scanner, or include both `secrets` and `oss` with optional `ai-sast` and `iac`. AI SAST can take minutes. Files default to git-changed files; `--staged` reads staged files. Requires a git repository with a remote. `--staged` and IDE scans skip unmonitored repositories before uploading file contents; a scan run by hand also covers unmonitored repositories (for example an open-source project under evaluation), and a repository Apiiro does not know needs an organization-wide user scope. Skipped scans print a reason.
 
 Triggers ask for confirmation every time. Ask the user before running a write, then pass `--yes` for the agreed command. Quick scans reuse fast-scan output and server verdicts: 0 = clean or could not run, 1 = findings, a server `Block`, or a usage error. A server `Warn` or `Success` allows the scan even with findings. The new commands require sign-in (exit 2 if missing).
 

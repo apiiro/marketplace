@@ -175,6 +175,40 @@ and Jamf deployments should continue using `apiiro init --non-interactive`.
 
 Available skills: `guardian-risks`, `guardian-fix`, `guardian-inventory`, `guardian-api`, `guardian-query`, `guardian-threat-model`, `guardian-scan`, `guardian-secure-prompt`, `guardian-setup`.
 
+### Hosted MCP server
+
+Apiiro Guardian is also available as a hosted MCP server at `https://mcp.apiiro.com/mcp`. It needs no local install: the server uses OAuth, so your MCP client opens the Apiiro sign-in page the first time it connects, and the tools only see what your Apiiro account can access. Never put an API key or token in the MCP configuration.
+
+**Kiro**: one-click install:
+
+[![Add to Kiro](https://kiro.dev/images/add-to-kiro.svg)](https://kiro.dev/launch/mcp/add?name=apiiro&config=%7B%22url%22%3A%22https%3A%2F%2Fmcp.apiiro.com%2Fmcp%22%2C%22disabled%22%3Afalse%2C%22autoApprove%22%3A%5B%5D%7D)
+
+Or add it to `.kiro/settings/mcp.json` (workspace) or `~/.kiro/settings/mcp.json` (user):
+
+```json
+{
+  "mcpServers": {
+    "apiiro": {
+      "url": "https://mcp.apiiro.com/mcp",
+      "disabled": false,
+      "autoApprove": []
+    }
+  }
+}
+```
+
+**Gemini CLI**: this repository is a Gemini CLI extension (`gemini-extension.json`), which adds the MCP server and a short `GEMINI.md` context file:
+
+```bash
+gemini extensions install https://github.com/apiiro/marketplace
+```
+
+Inside Gemini CLI, run `/mcp auth apiiro` if you need to sign in again.
+
+**Other MCP clients**: use the server URL with the streamable HTTP transport, for example `{"mcpServers": {"apiiro": {"url": "https://mcp.apiiro.com/mcp"}}}`.
+
+Privacy Policy: [apiiro.com/privacy-policy](https://apiiro.com/privacy-policy/). Support: [support.apiiro.com](https://support.apiiro.com) (see [Support](#support)).
+
 ## Authentication
 
 ```bash
@@ -223,7 +257,7 @@ Results support `--wait`, `--timeout <seconds>` (default: 300), `-o json|text`, 
 
 ### Quick Scans
 
-Scan changed or staged files for secrets, OSS vulnerabilities, AI SAST code weaknesses, and IaC misconfigurations. The default runs all four scanners. AI SAST can take several minutes. Requires a git repository with a remote. Repository eligibility is checked before uploading file contents; unmonitored repositories are skipped unless Apiiro has enabled scanning them for your environment. Skipped scans are reported with a reason.
+Scan changed or staged files for secrets, OSS vulnerabilities, AI SAST code weaknesses, and IaC misconfigurations. The default runs all four scanners. AI SAST can take several minutes. Requires a git repository with a remote. A `--staged` scan (the pre-commit hook) or an IDE scan skips a repository Apiiro does not monitor before uploading file contents. A scan you run yourself also covers unmonitored repositories, such as an open-source project you are evaluating; a repository Apiiro does not know needs an organization-wide Apiiro user scope. Skipped scans are reported with a reason.
 
 ```bash
 apiiro scans trigger --type quick --yes
@@ -240,7 +274,7 @@ The old names still work. `diff-scan` is a hidden, deprecated alias with its ori
 
 ### Fast Scan
 
-Quick local scanning for secrets and OSS vulnerabilities. Requires a git repository with an `origin` remote. The CLI checks repository eligibility before uploading file contents; unmonitored repositories are skipped unless Apiiro has enabled scanning them for your environment. Skipped scans are not reported as clean. Auto-detects changed files in the current git repo. Agent skill: `guardian-scan`.
+Quick local scanning for secrets and OSS vulnerabilities. Requires a git repository with an `origin` remote. `--staged` and IDE scans skip unmonitored repositories before uploading file contents; a scan you run yourself also covers unmonitored repositories. Skipped scans are not reported as clean. Auto-detects changed files in the current git repo. Agent skill: `guardian-scan`.
 
 ```bash
 apiiro fast-scan secrets            # Scan for secrets
@@ -798,6 +832,32 @@ Most commands support:
 
 ## Privacy & Telemetry
 
+This section describes privacy and data handling for the Apiiro CLI and the Apiiro plugins used with ChatGPT, Codex, and Claude. The hosted MCP connection and the local CLI are different ways to access Apiiro. Optional CLI telemetry and prevention-hook reporting are described separately below.
+
+### Hosted MCP plugin: data processed and purpose
+
+When you use the hosted Apiiro connection, the AI host sends the arguments of the requested tool call to Apiiro. Depending on the task, these can include a security question or coding-task description; repository URLs, names, or keys; risk identifiers; design text for threat modeling; package names, versions, or CVE identifiers; and file paths and source-code contents that you submit for scanning.
+
+Apiiro processes these inputs to perform the requested security query, inventory lookup, security-requirements enrichment, threat model, scan, or remediation workflow. Responses can include repository and application inventory, vulnerability and risk details, affected files or dependencies, security recommendations, and scan or remediation results. Tool responses are returned to the AI host for use in your conversation. Some actions, such as starting a scan or Autofix job, create records in your Apiiro tenant.
+
+The hosted connection uses your Apiiro account and the access available to that account. Signing in does not grant access to repositories or findings outside your Apiiro role. Complete authentication through the host's connection and Apiiro sign-in screens; do not paste passwords, tokens, API keys, or other sign-in secrets into chat.
+
+### Sharing and model training
+
+The requests and results needed to use the integration pass between Apiiro and the AI host you choose. Apiiro does not otherwise share customer prompts, submitted code, or tool results with third parties, and does not use those inputs or outputs to train models.
+
+The AI host separately processes the conversation, tool arguments, and returned results under the terms, privacy policies, and account or workspace settings applicable to that host. Apiiro's statement about its own data use does not override the host's policies or settings. Review those settings before submitting confidential information.
+
+### Retention, deletion, and user controls
+
+Apiiro manages retention and deletion of customer prompts, submitted code, tool results, and operational logs according to customer requests. Contact your organization's Apiiro administrator or [Apiiro support](https://support.apiiro.com) to confirm the retention arrangements that apply to your tenant or to request deletion.
+
+You can disconnect the hosted Apiiro integration through your AI host's connection settings to stop future tool requests from that connection. Disconnecting does not itself delete past conversations in the AI host or existing records in Apiiro. Requests concerning host-stored conversations must be handled through that host's controls; requests concerning Apiiro-stored data should go through your organization's administrator or Apiiro support.
+
+Only submit code and repository data you are authorized to process. Do not include unrelated personal information or credentials in prompts or scan inputs. CLI analytics opt-out settings affect the optional analytics described below; they do not prevent data transmission required to execute a requested security tool or the tenant security reports described below.
+
+### Local CLI analytics and prevention-hook reporting
+
 The CLI may send anonymous usage analytics (command name, success/failure, duration, OS, CLI version, client surface, and tenant id from your access token) to help Apiiro understand which features are used. It also records when a pre-commit scan is bypassed with `git commit --no-verify`, together with the coding-agent surface the bypass came from. Analytics never collect source code, repository URLs, file paths, finding details, email addresses, or tokens.
 
 The first time analytics would be recorded in an interactive terminal, the CLI prints a one-time notice on stderr. Telemetry is disabled automatically in CI environments, and you can opt out at any time with `APIIRO_TELEMETRY=0` or the standard `DO_NOT_TRACK=1`.
@@ -810,6 +870,8 @@ Likewise, a bypassed pre-commit scan is also reported to **your own Apiiro tenan
 
 The prompt hook's local log of enriched prompts (see [Hooks](#hooks)) stays on your machine and is never sent to Apiiro or included in analytics.
 
+For how Apiiro handles personal data, see the [Apiiro Privacy Policy](https://apiiro.com/privacy-policy/).
+
 ## Troubleshooting
 
 - **TLS / HTTPS errors** (corporate TLS inspection) — Point `NODE_EXTRA_CA_CERTS` at a PEM file from your IT team and retry.
@@ -818,11 +880,11 @@ The prompt hook's local log of enriched prompts (see [Hooks](#hooks)) stays on y
 
 ## Support
 
-For help with the Apiiro CLI or the Apiiro plugin for ChatGPT and Codex, submit a ticket at [support.apiiro.com](https://support.apiiro.com) or from your Apiiro tenant.
+For help with the Apiiro CLI, the Apiiro plugin for ChatGPT and Codex, or the hosted Apiiro MCP server (including in Kiro and Gemini CLI), submit a ticket at [support.apiiro.com](https://support.apiiro.com) or from your Apiiro tenant.
 
 Please include:
 
-- The host you are using (ChatGPT, Codex CLI, Codex app, or Codex IDE extension)
+- The host you are using (for example ChatGPT, Codex CLI, Codex app, Codex IDE extension, Kiro, or Gemini CLI)
 - The plugin version, or the CLI version from `apiiro --version`
 - A short description of the issue and the steps to reproduce it
 - Any error message, with credentials, tokens, and other sensitive values removed
