@@ -1,6 +1,6 @@
 {
   "name": "guardian-enrichment",
-  "version": "1.12.2",
+  "version": "1.13.0",
   "description": "Shows what Apiiro Guardian's secure-prompt hook added to your prompt",
   "author": {
     "name": "Apiiro"
