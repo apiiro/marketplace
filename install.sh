@@ -104,25 +104,6 @@ verify_checksum() {
 }
 
 # ----------------------------------------------------------------------------
-# Optional: verify the binary's SLSA build-provenance attestation.
-# Opt-in (APIIRO_VERIFY_ATTESTATION=1) because it requires the GitHub CLI and
-# only works once release provenance is published. When enabled and gh is
-# present, a failed verification aborts the install.
-# ----------------------------------------------------------------------------
-verify_attestation() {
-  [ "${APIIRO_VERIFY_ATTESTATION:-0}" = "1" ] || return 0
-  if ! command -v gh >/dev/null 2>&1; then
-    warn "APIIRO_VERIFY_ATTESTATION=1 but the gh CLI is not installed — cannot verify provenance"
-    return 0
-  fi
-  status "verifying build provenance"
-  if ! gh attestation verify "$1" --owner apiiro >/dev/null 2>&1; then
-    error "build-provenance verification failed for $1"
-  fi
-  status "provenance verified"
-}
-
-# ----------------------------------------------------------------------------
 # PATH configuration — patch every common shell's startup file, not just the
 # one $SHELL points at. A machine with zsh as the login shell but bash also
 # installed (or vice versa) should get `apiiro` on PATH no matter which one a
@@ -233,8 +214,6 @@ main() {
     error "could not fetch checksums.txt from $base_url — refusing to install unverified"
   fi
   verify_checksum "$tmp/apiiro" "$tmp/checksums.txt" "$asset"
-
-  verify_attestation "$tmp/apiiro"
 
   chmod +x "$tmp/apiiro"
   mkdir -p "$bin_dir"

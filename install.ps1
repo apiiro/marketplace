@@ -61,18 +61,6 @@ function Install-Apiiro {
         }
         Write-Host "  checksum verified"
 
-        # Optional SLSA build-provenance check (opt-in; needs the gh CLI).
-        if ($env:APIIRO_VERIFY_ATTESTATION -eq '1') {
-            if (Get-Command gh -ErrorAction SilentlyContinue) {
-                Write-Host "  verifying build provenance"
-                & gh attestation verify $tmpBin --owner apiiro *> $null
-                if ($LASTEXITCODE -ne 0) { throw "build-provenance verification failed for $asset" }
-                Write-Host "  provenance verified"
-            } else {
-                Write-Warning "APIIRO_VERIFY_ATTESTATION=1 but the gh CLI is not installed; cannot verify provenance"
-            }
-        }
-
         if (-not (Test-Path $binDir)) { New-Item -ItemType Directory -Path $binDir -Force | Out-Null }
         Move-Item -Path $tmpBin -Destination $target -Force
         Write-Host "  installed to $target"
