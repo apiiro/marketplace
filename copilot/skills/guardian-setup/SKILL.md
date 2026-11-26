@@ -9,44 +9,7 @@ You are setting up Apiiro. Do the following in order and confirm each step:
 
 - Check if installed: `which apiiro`
 - If already installed, skip to step 2
-- Detect the user's OS and offer the appropriate install method:
-
-**npm (macOS / Linux / Windows):**
-```bash
-npm i -g apiiro-cli
-```
-
-**macOS (Homebrew):**
-```bash
-brew tap apiiro/tap && brew trust apiiro/tap && brew install apiiro
-```
-
-**Linux (Homebrew):**
-```bash
-brew tap apiiro/tap && brew trust apiiro/tap && brew install apiiro
-```
-
-**Linux (RPM/yum):**
-```bash
-# Get the latest RPM URL (asset name includes the version number)
-RPM_URL=$(curl -s https://api.github.com/repos/apiiro/marketplace/releases/latest | grep "browser_download_url.*\.rpm" | cut -d '"' -f 4)
-sudo yum install -y "$RPM_URL"
-```
-
-**Direct download (macOS / Linux):** pick the asset for the platform (`apiiro-macos-arm64`, `apiiro-macos-x64`, `apiiro-linux-x64`, `apiiro-linux-arm64`) and verify it against `checksums.txt` before installing:
-```bash
-ASSET=apiiro-linux-x64
-BASE=https://github.com/apiiro/marketplace/releases/latest/download
-SHA=$(command -v sha256sum >/dev/null && echo "sha256sum" || echo "shasum -a 256")
-curl -fsSLO "$BASE/$ASSET" && curl -fsSLO "$BASE/checksums.txt" &&
-grep " $ASSET\$" checksums.txt | $SHA -c - &&
-chmod +x "$ASSET" && mkdir -p ~/.local/bin && mv "$ASSET" ~/.local/bin/apiiro &&
-case ":$PATH:" in *":$HOME/.local/bin:"*) ;; *) echo 'Add to your shell profile: export PATH="$HOME/.local/bin:$PATH"' ;; esac
-```
-The install stops at the first failed step, so a checksum mismatch installs nothing. If the PATH line prints, add it to `~/.zshrc` or `~/.bashrc` and open a new shell.
-
-**Windows:**
-Download `apiiro-win.exe` from https://github.com/apiiro/marketplace/releases
+- If it is not installed, follow [install.md](install.md) in this skill's directory: it installs a pinned release and verifies its checksum. If that file is not there, point the user to https://github.com/apiiro/marketplace#installation
 
 ## 2. Authenticate with Apiiro
 
